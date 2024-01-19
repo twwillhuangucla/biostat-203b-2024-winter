@@ -3107,7 +3107,7 @@ loaded via a namespace (and not attached):
 <section id="q2.-data-ethics-training" class="level2">
 <h2 class="anchored" data-anchor-id="q2.-data-ethics-training">Q2. Data ethics training</h2>
 <p>This exercise (and later in this course) uses the <a href="https://physionet.org/content/mimiciv/2.2/">MIMIC-IV data v2.2</a>, a freely accessible critical care database developed by the MIT Lab for Computational Physiology. Follow the instructions at <a href="https://mimic.mit.edu/docs/gettingstarted/" class="uri">https://mimic.mit.edu/docs/gettingstarted/</a> to (1) complete the CITI <code>Data or Specimens Only Research</code> course and (2) obtain the PhysioNet credential for using the MIMIC-IV data. Display the verification links to your completion report and completion certificate here. <strong>You must complete Q2 before working on the remaining questions.</strong> (Hint: The CITI training takes a few hours and the PhysioNet credentialing takes a couple days; do not leave it to the last minute.)</p>
-<p><strong>Answer:</strong> I completed the CITI training. Here is the link to my <a href="https://www.citiprogram.org/verify/?k52a23283-4c6c-4337-80cd-6b3726271f4e-60370405">completion report</a> and <a href="https://www.citiprogram.org/verify/?w5f194f5e-83e3-4478-9662-1feccd0c3d4c-60370405">completion certificate</a></p>
+<p><strong>Answer:</strong> I completed the CITI training. Here is the link to my <a href="https://www.citiprogram.org/verify/?k52a23283-4c6c-4337-80cd-6b3726271f4e-60370405">completion report</a> and <a href="https://www.citiprogram.org/verify/?w5f194f5e-83e3-4478-9662-1feccd0c3d4c-60370405">completion certificate</a>.</p>
 </section>
 <section id="q3.-linux-shell-commands" class="level2">
 <h2 class="anchored" data-anchor-id="q3.-linux-shell-commands">Q3. Linux Shell Commands</h2>
@@ -3120,9 +3120,15 @@ loaded via a namespace (and not attached):
 <p>Refer to the documentation <a href="https://physionet.org/content/mimiciv/2.2/" class="uri">https://physionet.org/content/mimiciv/2.2/</a> for details of data files. Please, do <strong>not</strong> put these data files into Git; they are big. Do <strong>not</strong> copy them into your directory. Do <strong>not</strong> decompress the gz data files. These create unnecessary big files and are not big-data-friendly practices. Read from the data folder <code>~/mimic</code> directly in following exercises.</p>
 <p>Use Bash commands to answer following questions.</p>
 <ol start="2" type="1">
-<li><p>Display the contents in the folders <code>hosp</code> and <code>icu</code> using Bash command <code>ls -l</code>. Why are these data files distributed as <code>.csv.gz</code> files instead of <code>.csv</code> (comma separated values) files? Read the page <a href="https://mimic.mit.edu/docs/iv/" class="uri">https://mimic.mit.edu/docs/iv/</a> to understand what’s in each folder.</p></li>
-<li><p>Briefly describe what Bash commands <code>zcat</code>, <code>zless</code>, <code>zmore</code>, and <code>zgrep</code> do.</p></li>
-<li><p>(Looping in Bash) What’s the output of the following bash script?</p></li>
+<li>Display the contents in the folders <code>hosp</code> and <code>icu</code> using Bash command <code>ls -l</code>. Why are these data files distributed as <code>.csv.gz</code> files instead of <code>.csv</code> (comma separated values) files? Read the page <a href="https://mimic.mit.edu/docs/iv/" class="uri">https://mimic.mit.edu/docs/iv/</a> to understand what’s in each folder.</li>
+</ol>
+<p><strong>Answer:</strong> The data files are distributed as csv.gz files because they are .csv files that have been compressed using gzip.</p>
+<ol start="3" type="1">
+<li>Briefly describe what Bash commands <code>zcat</code>, <code>zless</code>, <code>zmore</code>, and <code>zgrep</code> do.</li>
+</ol>
+<p><strong>Answer:</strong> The zcat command prints the contents of a compressed file. The zmore command allows you view contents of a compressed file one screen at a time. The zless command is also to view contents of a compressed file but allows you to navigate it by scrolling/ arrow keys. The zgrep command searches for lines that match an expression within a compressed file and prints it.</p>
+<ol start="4" type="1">
+<li>(Looping in Bash) What’s the output of the following bash script?</li>
 </ol>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> datafile <span class="kw">in</span> ~/mimic/hosp/<span class="dt">{a</span><span class="op">,</span><span class="dt">l</span><span class="op">,</span><span class="dt">pa}</span><span class="pp">*</span>.gz</span>
