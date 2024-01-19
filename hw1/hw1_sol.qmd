@@ -94,6 +94,16 @@ done
 ```
 5.  Display the first few lines of `admissions.csv.gz`. How many rows are in this data file? How many unique patients (identified by `subject_id`) are in this data file? Do they match the number of patients listed in the `patients.csv.gz` file? (Hint: combine Linux commands `zcat <`, `head`/`tail`, `awk`, `sort`, `uniq`, `wc`, and so on.)
 
+**Answer:**
+```{bash}
+#| eval: true
+zcat < ~/mimic/hosp/admissions.csv.gz | head -10
+zcat < ~/mimic/hosp/admissions.csv.gz | awk 'END { print NR }'
+zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, 'NR > 1 { print $1}' | sort | uniq | wc -l
+zcat < ~/mimic/hosp/patients.csv.gz | awk 'NR > 1 {print $1}' | wc -l
+```
+There are 431232 rows in this data file and 180733 unique patients. It does not match the number of patients listed in the patients.csv.gz file.
+
 6.  What are the possible values taken by each of the variable `admission_type`, `admission_location`, `insurance`, and `ethnicity`? Also report the count for each unique value of these variables. (Hint: combine Linux commands `zcat`, `head`/`tail`, `awk`, `uniq -c`, `wc`, and so on; skip the header line.)
 
 7.  *To compress, or not to compress. That's the question.* Let's focus on the big data file `labevents.csv.gz`. Compare compressed gz file size to the uncompressed file size. Compare the run times of `zcat < ~/mimic/labevents.csv.gz | wc -l` versus `wc -l labevents.csv`. Discuss the trade off between storage and speed for big data files. (Hint: `gzip -dk < FILENAME.gz > ./FILENAME`. Remember to delete the large `labevents.csv` file after the exercise.)
