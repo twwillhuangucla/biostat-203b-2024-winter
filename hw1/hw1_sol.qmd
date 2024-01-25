@@ -107,19 +107,35 @@ There are 431232 rows in this data file and 180733 unique patients. It does not 
 6.  What are the possible values taken by each of the variable `admission_type`, `admission_location`, `insurance`, and `ethnicity`? Also report the count for each unique value of these variables. (Hint: combine Linux commands `zcat`, `head`/`tail`, `awk`, `uniq -c`, `wc`, and so on; skip the header line.)
 ```{bash}
 #| eval: true
-zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{ print $6}' | head -1
+echo "admission_type:"
 zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, 'NR > 1 { print $6}' | sort | uniq -c
-zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{ print $8}' | head -1
+echo "admission_location:"
 zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, 'NR > 1 { print $8}' | sort | uniq -c
-zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{ print $10}' | head -1
+echo "insurance:"
 zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, 'NR > 1 { print $10}' | sort | uniq -c
-zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{ print $13}' | head -1
+echo "ethnicity:"
 zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, 'NR > 1 { print $13}' | sort | uniq -c
 ```
 
 **Answer:**Possible values of each variable and count output shown above.
 
 7.  *To compress, or not to compress. That's the question.* Let's focus on the big data file `labevents.csv.gz`. Compare compressed gz file size to the uncompressed file size. Compare the run times of `zcat < ~/mimic/labevents.csv.gz | wc -l` versus `wc -l labevents.csv`. Discuss the trade off between storage and speed for big data files. (Hint: `gzip -dk < FILENAME.gz > ./FILENAME`. Remember to delete the large `labevents.csv` file after the exercise.)
+```{bash}
+#| eval: false
+gzip -dk < ~/mimic/hosp/labevents.csv.gz > ./labevents.csv
+```
+
+```{bash}
+du -h ~/mimic/hosp/labevents.csv.gz labevents.csv 
+time zcat < ~/mimic/hosp/labevents.csv.gz | wc -l
+time wc -l labevents.csv
+```
+
+```{bash}
+#| eval: false
+rm labevents.csv
+```
+**Answer:** The runtime of the uncompressed file (0m16.626s) is much faster than the compressed file(1m26.426s). However, the compressed file is much smaller (1.9GB) than the uncompressed file (13GB). The tradeoff between storage and speed is that the compressed file takes up less space but takes longer to run. The uncompressed file takes up more space but runs faster.
 
 ## Q4. Who's popular in Price and Prejudice
 
@@ -133,15 +149,16 @@ wget -nc http://www.gutenberg.org/cache/epub/42671/pg42671.txt
 Explain what `wget -nc` does. Do **not** put this text file `pg42671.txt` in Git. Complete the following loop to tabulate the number of times each of the four characters is mentioned using Linux commands.
 
 ```{bash}
-#| eval: false
+#| eval: true
 wget -nc http://www.gutenberg.org/cache/epub/42671/pg42671.txt
 for char in Elizabeth Jane Lydia Darcy
 do
   echo $char:
-  # some bash commands here
+  grep -i -o $char pg42671.txt | wc -l
 done
 ```
 
+**Answer:** The wget -nc command downloads the file from the url and saves it to the current directory. The -nc option prevents wget from downloading the file if it already exists in the current directory.
 2.  What's the difference between the following two commands?
 
 ```{bash}
@@ -155,6 +172,7 @@ and
 #| eval: false
 echo 'hello, world' >> test2.txt
 ```
+**Answer:** The difference between the two commands is how they direct the output. The first command, >, will write the string hello,world to test1.txt and overwrites the file if it already exists while the second command, >>, appends the text to the end of the file if it already exists.
 
 3.  Using your favorite text editor (e.g., `vi`), type the following and save the file as `middle.sh`:
 
@@ -168,11 +186,13 @@ head -n "$2" "$1" | tail -n "$3"
 Using `chmod` to make the file executable by the owner, and run
 
 ```{bash}
-#| eval: false
+#| eval: true
 ./middle.sh pg42671.txt 20 5
 ```
 
 Explain the output. Explain the meaning of `"$1"`, `"$2"`, and `"$3"` in this shell script. Why do we need the first line of the shell script?
+
+**Answer:** The output is line 16-20 from the file, pg42671.txt. This shell script is used to display a selection of lines from the middle of a file. The first argument,`"$1"`,  is the filename of the file that we want to display. The second argument, `"$2"`, is number of lines we want the head command to display which is then piped to tail where the third argument,`"$3"` , dictates the number of lines for the final output. The first line of the shell script is used to tell the shell which interpreter to use to execute the script.
 
 ## Q5. More fun with Linux
 
