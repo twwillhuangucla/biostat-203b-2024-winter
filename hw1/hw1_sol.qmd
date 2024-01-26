@@ -198,6 +198,56 @@ Explain the output. Explain the meaning of `"$1"`, `"$2"`, and `"$3"` in this sh
 
 Try following commands in Bash and interpret the results: `cal`, `cal 2024`, `cal 9 1752` (anything unusual?), `date`, `hostname`, `arch`, `uname -a`, `uptime`, `who am i`, `who`, `w`, `id`, `last | head`, `echo {con,pre}{sent,fer}{s,ed}`, `time sleep 5`, `history | tail`.
 
+**Answer:**
+```{bash}
+echo "cal"
+cal
+echo "cal 2024"
+cal 2024
+echo "cal 9 1752"
+cal 9 1752
+echo "date"
+date
+echo "hostname"
+hostname
+echo "arch"
+arch
+echo "uname -a"
+uname -a
+echo "uptime"
+uptime
+echo "who am i"
+who am i
+echo "who"
+who
+echo "w"
+w
+echo "id"
+id
+echo "last | head"
+last | head
+echo "echo {con,pre}{sent,fer}{s,ed}"
+echo {con,pre}{sent,fer}{s,ed}
+echo "time sleep 5"
+time sleep 5
+```
+cal: displays the calendar for the current month \
+cal 2024: displays the calendar for the year 2024 \
+cal 9 1752: displays the calendar for the month of September in the year 1752. This is unusual because the calendar skips 11 days from September 2nd to September 14th due to switch from the Julian to Gregorian calendar. \
+date: displays the current date and time \
+hostname: displays the name of the current host computer \
+arch: displays the architecture of the current machine \
+uname -a: display detailed system information including the kernel name, version, and release \
+uptime: displays the current time, how long the system has been running, and the number of users currently logged in \
+who am i: displays the current user (but nothing displayed here because this is not a login shell) \
+who: displays the users currently logged in \
+w: displays the users currently logged in and what they are doing \
+id: displays the current user's id and group id \
+last | head: displays the last 10 logins \
+echo {con,pre}{sent,fer}{s,ed}: displays the words consent, consented, present, presented, prefers, and prefered using brace expansion \
+time sleep 5: displays the time it takes to run the sleep 5 command, which is pausing for 5 seconds \
+history | tail: displays the last 10 commands entered into the shell \
+
 ## Q6. Book
 
 1.  Git clone the repository <https://github.com/christophergandrud/Rep-Res-Book> for the book *Reproducible Research with R and RStudio* to your local machine.
@@ -207,3 +257,4 @@ Try following commands in Bash and interpret the results: `cal`, `cal 2024`, `ca
 The point of this exercise is (1) to get the book for free and (2) to see an example how a complicated project such as a book can be organized in a reproducible way.
 
 For grading purpose, include a screenshot of Section 4.1.5 of the book here.
+![](./Section_4.1.5_Screenshot.png)
