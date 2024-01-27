@@ -42,13 +42,13 @@ sessionInfo()
 
 5.  After this course, you can make this repository public and use it to demonstrate your skill sets on job market.
 
-**Answer:** Display the URL of my Github repository here. <https://github.com/twwillhuangucla/biostat-203b-2024-winter>
+**Answer:** URL of my Github repository: <https://github.com/twwillhuangucla/biostat-203b-2024-winter>
 
 ## Q2. Data ethics training
 
 This exercise (and later in this course) uses the [MIMIC-IV data v2.2](https://physionet.org/content/mimiciv/2.2/), a freely accessible critical care database developed by the MIT Lab for Computational Physiology. Follow the instructions at <https://mimic.mit.edu/docs/gettingstarted/> to (1) complete the CITI `Data or Specimens Only Research` course and (2) obtain the PhysioNet credential for using the MIMIC-IV data. Display the verification links to your completion report and completion certificate here. **You must complete Q2 before working on the remaining questions.** (Hint: The CITI training takes a few hours and the PhysioNet credentialing takes a couple days; do not leave it to the last minute.)
 
-**Answer:** I completed the CITI training. Here is the link to my [completion report](https://www.citiprogram.org/verify/?k52a23283-4c6c-4337-80cd-6b3726271f4e-60370405) and [completion certificate](https://www.citiprogram.org/verify/?w5f194f5e-83e3-4478-9662-1feccd0c3d4c-60370405).
+**Answer:** I completed the CITI training. Here is the link to my [completion report](https://www.citiprogram.org/verify/?k52a23283-4c6c-4337-80cd-6b3726271f4e-60370405) and [completion certificate](https://www.citiprogram.org/verify/?w5f194f5e-83e3-4478-9662-1feccd0c3d4c-60370405). Here is my physio.net credential: ![](./PhysioNet_Screenshot.png)
 
 ## Q3. Linux Shell Commands
 
@@ -69,7 +69,7 @@ Use Bash commands to answer following questions.
 
 3.  Briefly describe what Bash commands `zcat`, `zless`, `zmore`, and `zgrep` do.
 
-**Answer:** The zcat command prints the contents of a compressed file. The zmore command allows you view contents of a compressed file one screen at a time. The zless command is also to view contents of a compressed file but allows you to navigate it by scrolling/ arrow keys. The zgrep command searches for lines that match an expression within a compressed file and prints it.
+**Answer:** The zcat command reads and prints the contents of a compressed file. The zmore command allows you view contents of a compressed file one screen at a time. The zless command is also to view contents of a compressed file but allows you to navigate it by scrolling/ arrow keys. The zgrep command searches for lines that match an expression within a compressed file and prints it.
 
 4.  (Looping in Bash) What's the output of the following bash script?
 
@@ -84,6 +84,7 @@ done
 Display the number of lines in each data file using a similar loop. (Hint: combine linux commands `zcat <` and `wc -l`.)
 
 **Answer:**
+The output of the above bash script displays detailed information about the .gz files that start with a, l, or pa in the hosp folder. The number of lines in each data file is displayed below.
 ```{bash}
 #| eval: true
 for datafile in ~/mimic/hosp/{a,l,pa}*.gz
@@ -308,7 +309,7 @@ time sleep 5
 ```
 
 **time sleep 5:** displays the time it takes to run the sleep 5 command, which is pausing for 5 seconds\
-**history \| tail:** displays the last 10 commands entered into the shell\
+**history \| tail:** displays the last 10 commands entered into the current shell. Code output not shown because Rstudio creates a new terminal when rendering each code chunk so there is no history.\
 
 ## Q6. Book
 
