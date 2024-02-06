@@ -124,10 +124,18 @@ zcat < ~/mimic/hosp/labevents.csv.gz | head -10
 </p>
 
 Try to ingest `labevents.csv.gz` using `read_csv`. What happens? If it takes more than 5 minutes on your computer, then abort the program and report your findings. 
+```{r, eval = FALSE}
+labevents_tidyverse <- read_csv("~/mimic/hosp/labevents.csv.gz")
+```
+**Answer:** The `read_csv` function takes more than 5 minutes to ingest `labevents.csv.gz` and was aborted. This is because the file is too large and there is no enough memory on this device to ingest the file.
 
 ### Q2.2 Ingest selected columns of `labevents.csv.gz` by `read_csv`
 
 Try to ingest only columns `subject_id`, `itemid`, `charttime`, and `valuenum` in `labevents.csv.gz` using `read_csv`.  Does this solve the ingestion issue? (Hint: `col_select` argument in `read_csv`.)
+```{r, eval = FALSE}
+labevents_tidyverse <- read_csv("~/mimic/hosp/labevents.csv.gz", col_select = c(subject_id, itemid, charttime, valuenum))
+```
+**Answer:** The `read_csv` function still takes more than 5 minutes to ingest `labevents.csv.gz` even when only the selected columns are ingested. This is because the file is still too large.
 
 ### Q2.3 Ingest subset of `labevents.csv.gz`
 
