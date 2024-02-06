@@ -20,7 +20,7 @@ knitr:
     fig.height: 4
     message: FALSE
 execute:
-  eval: false    
+  eval: true    
 ---
 
 Display machine information for reproducibility:
@@ -63,7 +63,7 @@ There are quite a few utilities in R for reading plain text data files. Let us t
 
 Which function is fastest? Is there difference in the (default) parsed data types? How much memory does each resultant dataframe or tibble use? (Hint: `system.time` measures run times; `pryr::object_size` measures memory usage.) 
 
-```{r}
+```{r, eval = TRUE}
 system.time(admissions_base <- read.csv("~/mimic/hosp/admissions.csv.gz"))
 system.time(admissions_tidyverse <- read_csv("~/mimic/hosp/admissions.csv.gz", show_col_types = FALSE))
 system.time(admissions_fread <- fread("~/mimic/hosp/admissions.csv.gz"))
