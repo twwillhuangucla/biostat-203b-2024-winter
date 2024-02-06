@@ -79,6 +79,28 @@ pryr::object_size(admissions_fread)
 ### Q1.2 User-supplied data types
 
 Re-ingest `admissions.csv.gz` by indicating appropriate column data types in `read_csv`. Does the run time change? How much memory does the result tibble use? (Hint: `col_types` argument in `read_csv`.)
+```{r}
+system.time(admissions_tidyverse <- read_csv("~/mimic/hosp/admissions.csv.gz", col_types = cols(
+  subject_id = col_integer(), 
+  hadm_id = col_integer(), 
+  admittime = col_datetime(), 
+  dischtime = col_datetime(), 
+  deathtime = col_datetime(), 
+  admission_type = col_factor(),
+  admit_provider_id = col_character(),
+  admission_location = col_factor(), 
+  discharge_location = col_factor(), 
+  insurance = col_factor(), 
+  language = col_factor(), 
+  marital_status = col_factor(),
+  race = col_factor(),
+  edregtime = col_datetime(),
+  edouttime = col_datetime(),
+  hospital_expire_flag = col_factor())))
+head(admissions_tidyverse, width = Inf)
+pryr::object_size(admissions_tidyverse)
+```
+**Answer:** The run time shortens from 1.847s to 1.591s and the memory usage of the tibble also decreases from 55.31MB to 38.06MB.
 
 ## Q2. Ingest big data files
 
