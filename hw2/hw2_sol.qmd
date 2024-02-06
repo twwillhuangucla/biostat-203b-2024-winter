@@ -63,6 +63,19 @@ There are quite a few utilities in R for reading plain text data files. Let us t
 
 Which function is fastest? Is there difference in the (default) parsed data types? How much memory does each resultant dataframe or tibble use? (Hint: `system.time` measures run times; `pryr::object_size` measures memory usage.) 
 
+```{r}
+system.time(admissions_base <- read.csv("~/mimic/hosp/admissions.csv.gz"))
+system.time(admissions_tidyverse <- read_csv("~/mimic/hosp/admissions.csv.gz", show_col_types = FALSE))
+system.time(admissions_fread <- fread("~/mimic/hosp/admissions.csv.gz"))
+head(admissions_base, width = Inf)
+head(admissions_tidyverse, width = Inf)
+head(admissions_fread, width = Inf)
+pryr::object_size(admissions_base)
+pryr::object_size(admissions_tidyverse)
+pryr::object_size(admissions_fread)
+```
+**Answer:** The `fread` function is the fastest, followed by `read_csv`, and then `read.csv`. The `fread` function also produces a data table that uses less memory, 50.13MB, compared to the tibble created by read_csv, 55.31MB, and the dataframe by the base read.csv, 158.71MB.  The default parsed data types are also different between the 3 functions. The 'read.csv' function parses the numerical columns as 'integer' and all other columns as 'character'. The 'read_csv' function parses the numerical columns as 'double', columns containing date and time as 'POSIXct' and all other columns as 'character'. The 'fread' function parses the numerical columns as 'integer', columns containing date and time also as 'POSIXct', and all other columns as 'character'.
+
 ### Q1.2 User-supplied data types
 
 Re-ingest `admissions.csv.gz` by indicating appropriate column data types in `read_csv`. Does the run time change? How much memory does the result tibble use? (Hint: `col_types` argument in `read_csv`.)
