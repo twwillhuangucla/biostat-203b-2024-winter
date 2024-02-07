@@ -189,7 +189,7 @@ nrow(labevents_arrow)
 
 Write a few sentences to explain what is Apache Arrow. Imagine you want to explain it to a layman in an elevator. \
 
-**Answer:** Apache Arrow is a software development platform that is designed to process and transport large datasets and work across different programming languages. It does this by representing data in a columnar format, where each column is stored separately, to allow for more efficient in-memory processing.
+**Answer:** Apache Arrow is a software development platform that is designed to process and transport large datasets and work across different programming languages. It does this by representing data in a columnar format, where each column is stored separately, to allow for more efficient in-memory processing. 
 
 ### Q2.5 Compress `labevents.csv` to Parquet format and ingest/select/filter
 
@@ -199,7 +199,23 @@ Write a few sentences to explain what is Apache Arrow. Imagine you want to expla
 
 Re-write the csv file `labevents.csv` in the binary Parquet format (Hint: [`arrow::write_dataset`](https://arrow.apache.org/docs/r/reference/write_dataset.html).) How large is the Parquet file(s)? How long does the ingest+select+filter process of the Parquet file(s) take? Display the number of rows and the first 10 rows of the result tibble and make sure they match those in Q2.3. (Hint: use `dplyr` verbs for selecting columns and filtering rows.)
 
-Write a few sentences to explain what is the Parquet format. Imagine you want to explain it to a layman in an elevator.
+```{r, eval = FALSE}
+arrow::write_dataset(arrow::open_dataset("labevents.csv", format = "csv"), ".", format = "parquet")
+```
+```{r}
+system.time(
+  labevents_parquet <- arrow::open_dataset("part-0.parquet", format = "parquet") %>% 
+    dplyr::select(subject_id, itemid, charttime, valuenum) %>% 
+    dplyr::filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>% 
+    collect())
+dplyr::arrange(labevents_parquet, subject_id) %>% head(10)
+nrow(labevents_parquet)
+```
+**Answer:** The Parquet file is 1.9GB which is significantly smaller than the original labevents.csv file. The ingest+select+filter process of the Parquet file took 7.3s which is also a lot faster. The number of rows and first 10 rows of the result tibble match those in Q2.3. \
+
+Write a few sentences to explain what is the Parquet format. Imagine you want to explain it to a layman in an elevator. \
+
+**Answer:** The Parquet format is a file storing format that is designed to be efficient for reading and writing large datasets by storing data in a columnar format. It is open standard and is part of the Apache Arrow project.
 
 ### Q2.6 DuckDB
 
@@ -209,7 +225,21 @@ Write a few sentences to explain what is the Parquet format. Imagine you want to
 
 Ingest the Parquet file, convert it to a DuckDB table by [`arrow::to_duckdb`](https://arrow.apache.org/docs/r/reference/to_duckdb.html), select columns, and filter rows as in Q2.5. How long does the ingest+convert+select+filter process take? Display the number of rows and the first 10 rows of the result tibble and make sure they match those in Q2.3. (Hint: use `dplyr` verbs for selecting columns and filtering rows.)
 
-Write a few sentences to explain what is DuckDB. Imagine you want to explain it to a layman in an elevator.
+```{r}
+system.time(
+  labevents_duckdb <- arrow::open_dataset("part-0.parquet", format = "parquet") %>% 
+    arrow::to_duckdb() %>%
+    dplyr::select(subject_id, itemid, charttime, valuenum) %>% 
+    dplyr::filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
+    collect())
+dplyr::arrange(labevents_duckdb, subject_id) %>% head(10)
+nrow(labevents_duckdb)
+```
+**Answer:** The ingest+convert+select+filter process took 10.1s. The number of rows and first 10 rows of the result tibble match those in Q2.3. \
+
+Write a few sentences to explain what is DuckDB. Imagine you want to explain it to a layman in an elevator. \
+
+**Answer:** DuckDB is a database management system that is designed for efficient querying and analysis of large datasets. It has features such as using columnar storage and vectorized execution, where query operations are performed on entire columns at once, to allow for fast processing of data.
 
 ## Q3. Ingest and filter `chartevents.csv.gz`
 
@@ -224,3 +254,4 @@ zcat < ~/mimic/icu/d_items.csv.gz | head -10
 In later exercises, we are interested in the vitals for ICU patients: heart rate (220045), mean non-invasive blood pressure (220181), systolic non-invasive blood pressure (220179), body temperature in Fahrenheit (223761), and respiratory rate (220210). Retrieve a subset of `chartevents.csv.gz` only containing these items, using the favorite method you learnt in Q2. 
 
 Document the steps and show code. Display the number of rows and the first 10 rows of the result tibble.
+
