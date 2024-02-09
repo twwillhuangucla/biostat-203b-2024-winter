@@ -1,7 +1,7 @@
 ---
 title: "Biostat 203B Homework 2"
 subtitle: Due Feb 9 @ 11:59PM
-author: "Your NAME and UID"
+author: "Chun-Siang Huang, 205111921 "
 format:
   html:
     theme: cosmo
@@ -36,6 +36,7 @@ library(memuse)
 library(pryr)
 library(R.utils)
 library(tidyverse)
+library(duckdb)
 ```
 
 Display memory information of your computer
@@ -68,9 +69,9 @@ system.time(admissions_base <- read.csv("~/mimic/hosp/admissions.csv.gz"))
 system.time(admissions_tidyverse <-
   read_csv("~/mimic/hosp/admissions.csv.gz", show_col_types = FALSE))
 system.time(admissions_fread <- fread("~/mimic/hosp/admissions.csv.gz"))
-head(admissions_base, width = Inf)
-head(admissions_tidyverse, width = Inf)
-head(admissions_fread, width = Inf)
+head(admissions_base, width = Inf) %>% rmarkdown::paged_table()
+head(admissions_tidyverse, width = Inf) %>% rmarkdown::paged_table()
+head(admissions_fread, width = Inf) %>% rmarkdown::paged_table()
 pryr::object_size(admissions_base)
 pryr::object_size(admissions_tidyverse)
 pryr::object_size(admissions_fread)
@@ -190,14 +191,16 @@ system.time(
     select(subject_id, itemid, charttime, valuenum) %>%
     filter(itemid %in% 
       c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
-    mutate(charttime = force_tz(charttime, tzone = "US/Eastern")) %>%
     collect()
 )
 
+labevents_arrow$charttime <- 
+  with_tz(labevents_arrow$charttime, tzone = "UTC") %>% 
+  force_tz(tzone = "US/Eastern")
 arrange(labevents_arrow, subject_id) %>% head(10)
 nrow(labevents_arrow)
 ```
-**Answer:** The ingest+select+filter process took 32.3s.  There are 24855909 rows in the resulting tibble which is the same as labevents_filtered.csv.gz because in labevents_filtered.csv.gz the first row is the headings row. The first 10 rows of the result tibble match those in Q2.3. \
+**Answer:** The ingest+select+filter process took 32.3s.  There are 24855909 rows in the resulting tibble which is the same as labevents_filtered.csv.gz because in labevents_filtered.csv.gz the first row is the headings row. The first 10 rows of the result tibble match those in Q2.3 \
 
 Write a few sentences to explain what is Apache Arrow. Imagine you want to explain it to a layman in an elevator. \
 
@@ -220,12 +223,15 @@ arrow::write_dataset(
 system.time(
   labevents_parquet <- 
     arrow::open_dataset("./labevents.parquet/part-0.parquet", format = "parquet") %>%
-    dplyr::select(subject_id, itemid, charttime, valuenum) %>%
-    dplyr::filter(itemid %in% 
+    select(subject_id, itemid, charttime, valuenum) %>%
+    filter(itemid %in% 
       c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
     collect()
 )
-dplyr::arrange(labevents_parquet, subject_id) %>% head(10)
+labevents_parquet$charttime <- 
+  with_tz(labevents_parquet$charttime, tzone = "UTC") %>% 
+  force_tz(tzone = "US/Eastern")
+arrange(labevents_parquet, subject_id) %>% head(10)
 nrow(labevents_parquet)
 ```
 **Answer:** The Parquet file is 1.9GB which is significantly smaller than the original labevents.csv file. The ingest+select+filter process of the Parquet file took 7.3s which is also a lot faster than just ingesting by Apache Arrow. The number of rows and first 10 rows of the result tibble match those in Q2.3. \
@@ -248,14 +254,15 @@ system.time(
     arrow::open_dataset("./labevents.parquet/part-0.parquet", 
       format = "parquet") %>%
     arrow::to_duckdb() %>%
-    dplyr::select(subject_id, itemid, charttime, valuenum) %>%
-    dplyr::filter(itemid %in% 
+    select(subject_id, itemid, charttime, valuenum) %>%
+    filter(itemid %in% 
       c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
     collect()
 )
+
 labevents_duckdb$charttime <- 
-  with_tz(labevents_duckdb$charttime, tzone = "America/New_York")
-dplyr::arrange(labevents_duckdb, subject_id) %>% head(10)
+  force_tz(labevents_duckdb$charttime, tzone = "US/Eastern")
+arrange(labevents_duckdb, subject_id) %>% head(10)
 nrow(labevents_duckdb)
 ```
 **Answer:** The ingest+convert+select+filter process took 10.1s. The number of rows and first 10 rows of the result tibble match those in Q2.3. \
@@ -290,9 +297,15 @@ arrow::write_dataset(
 chartevents_parquet <- 
   arrow::open_dataset("./chartevents.parquet/part-0.parquet", 
     format = "parquet") %>%
-  dplyr::filter(itemid %in% c(220045, 220181, 220179, 223761, 220210)) %>%
+  filter(itemid %in% c(220045, 220181, 220179, 223761, 220210)) %>%
   collect()
 
+chartevents_parquet$charttime <- 
+  with_tz(chartevents_parquet$charttime, tzone = "UTC") %>%
+  force_tz(tzone = "US/Eastern")
+chartevents_parquet$storetime <- 
+  with_tz(chartevents_parquet$storetime, tzone = "UTC") %>%
+  force_tz(tzone = "US/Eastern")
 nrow(chartevents_parquet)
-dplyr::arrange(chartevents_parquet, subject_id) %>% head(10)
+arrange(chartevents_parquet, subject_id) %>% head(10) %>% rmarkdown::paged_table()
 ```
