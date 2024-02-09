@@ -108,10 +108,6 @@ pryr::object_size(admissions_tidyverse)
 
 ## Q2. Ingest big data files
 
-<p align="center">
-  <img src="./bigfile.png" width="50%">
-</p>
-
 Let us focus on a bigger file, `labevents.csv.gz`, which is about 125x bigger than `admissions.csv.gz`.
 ```{bash}
 ls -l ~/mimic/hosp/labevents.csv.gz
@@ -123,12 +119,9 @@ zcat < ~/mimic/hosp/labevents.csv.gz | head -10
 
 ### Q2.1 Ingest `labevents.csv.gz` by `read_csv`
 
-<p align="center">
-  <img src="./readr_logo.png" width="20%">
-</p>
-
 Try to ingest `labevents.csv.gz` using `read_csv`. What happens? If it takes more than 5 minutes on your computer, then abort the program and report your findings. 
 ```{r, eval = FALSE}
+#eval set to FALSE to avoid long run time
 labevents_tidyverse <- read_csv("~/mimic/hosp/labevents.csv.gz")
 ```
 **Answer:** The `read_csv` function takes more than 5 minutes to ingest `labevents.csv.gz` and was aborted. This is because the file is too large and there is no enough memory on this device to ingest the file.
@@ -137,6 +130,7 @@ labevents_tidyverse <- read_csv("~/mimic/hosp/labevents.csv.gz")
 
 Try to ingest only columns `subject_id`, `itemid`, `charttime`, and `valuenum` in `labevents.csv.gz` using `read_csv`.  Does this solve the ingestion issue? (Hint: `col_select` argument in `read_csv`.)
 ```{r, eval = FALSE}
+#eval set to FALSE to avoid long run time
 labevents_tidyverse <- 
   read_csv("~/mimic/hosp/labevents.csv.gz", 
     col_select = c(subject_id, itemid, charttime, valuenum)
@@ -146,15 +140,12 @@ labevents_tidyverse <-
 
 ### Q2.3 Ingest subset of `labevents.csv.gz`
 
-<p align="center">
-  <img src="./linux_logo.png" width="20%">
-</p>
-
 Our first strategy to handle this big data file is to make a subset of the `labevents` data.  Read the [MIMIC documentation](https://mimic.mit.edu/docs/iv/modules/hosp/labevents/) for the content in data file `labevents.csv`.
 
 In later exercises, we will only be interested in the following lab items: creatinine (50912), potassium (50971), sodium (50983), chloride (50902), bicarbonate (50882), hematocrit (51221), white blood cell count (51301), and glucose (50931) and the following columns: `subject_id`, `itemid`, `charttime`, `valuenum`. Write a Bash command to extract these columns and rows from `labevents.csv.gz` and save the result to a new file `labevents_filtered.csv.gz` in the current working directory. (Hint: use `zcat <` to pipe the output of `labevents.csv.gz` to `awk` and then to `gzip` to compress the output. To save render time, put `#| eval: false` at the beginning of this code chunk.)
 
 ```{bash, eval = FALSE}
+#eval set to FALSE to avoid long run time, to reproduce in full, set eval = TRUE 
 zcat < ~/mimic/hosp/labevents.csv.gz | \
 awk -F, 'BEGIN {OFS=","} ; NR==1 {print $2,$5,$7,$10} ; \
 NR>1 {if ($5 == 50912 || $5 == 50971 || $5 == 50983 || \
@@ -169,17 +160,14 @@ zcat < ./labevents_filtered.csv.gz | wc -l
 ```{r, message = F}
 system.time(labevents_filtered <- read_csv("labevents_filtered.csv.gz"))
 ```
-**Answer:** The first 10 lines of the new file `labevents_filtered.csv.gz` are displayed. There are 24855910 lines in this new file. The `read_csv` function takes 16.046s to ingest `labevents_filtered.csv.gz`. 
+**Answer:** The first 10 lines of the new file `labevents_filtered.csv.gz (127MB)` are displayed. There are 24855910 lines in this new file. The `read_csv` function takes 16.046s to ingest `labevents_filtered.csv.gz`. 
 
 ### Q2.4 Ingest `labevents.csv` by Apache Arrow
-
-<p align="center">
-  <img src="./arrow_logo.png" width="30%">
-</p>
 
 Our second strategy is to use [Apache Arrow](https://arrow.apache.org/) for larger-than-memory data analytics. Unfortunately Arrow does not work with gz files directly. First decompress `labevents.csv.gz` to `labevents.csv` and put it in the current working directory. To save render time, put `#| eval: false` at the beginning of this code chunk.
 
 ```{bash, eval = FALSE}
+#eval set to FALSE to avoid large file, to reproduce in full set eval = TRUE 
 gzip -dk < ~/mimic/hosp/labevents.csv.gz > ./labevents.csv
 ```
 
@@ -208,13 +196,10 @@ Write a few sentences to explain what is Apache Arrow. Imagine you want to expla
 
 ### Q2.5 Compress `labevents.csv` to Parquet format and ingest/select/filter
 
-<p align="center">
-  <img src="./parquet_logo.png" width="30%">
-</p>
-
 Re-write the csv file `labevents.csv` in the binary Parquet format (Hint: [`arrow::write_dataset`](https://arrow.apache.org/docs/r/reference/write_dataset.html).) How large is the Parquet file(s)? How long does the ingest+select+filter process of the Parquet file(s) take? Display the number of rows and the first 10 rows of the result tibble and make sure they match those in Q2.3. (Hint: use `dplyr` verbs for selecting columns and filtering rows.)
 
 ```{r, eval = FALSE}
+#eval set to FALSE to avoid large file, to reproduce in full set eval = TRUE
 arrow::write_dataset(
   arrow::open_dataset("labevents.csv", format = "csv"), 
   "./labevents.parquet", format = "parquet")
@@ -222,7 +207,8 @@ arrow::write_dataset(
 ```{r}
 system.time(
   labevents_parquet <- 
-    arrow::open_dataset("./labevents.parquet/part-0.parquet", format = "parquet") %>%
+    arrow::open_dataset("./labevents.parquet/part-0.parquet", 
+      format = "parquet") %>%
     select(subject_id, itemid, charttime, valuenum) %>%
     filter(itemid %in% 
       c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
@@ -241,10 +227,6 @@ Write a few sentences to explain what is the Parquet format. Imagine you want to
 **Answer:** The Parquet format is a file storing format that is designed to be efficient for reading and writing large datasets by storing data in a columnar format. It is open standard and is part of the Apache Arrow project.
 
 ### Q2.6 DuckDB
-
-<p align="center">
-  <img src="./duckdb_logo.png" width="20%">
-</p>
 
 Ingest the Parquet file, convert it to a DuckDB table by [`arrow::to_duckdb`](https://arrow.apache.org/docs/r/reference/to_duckdb.html), select columns, and filter rows as in Q2.5. How long does the ingest+convert+select+filter process take? Display the number of rows and the first 10 rows of the result tibble and make sure they match those in Q2.3. (Hint: use `dplyr` verbs for selecting columns and filtering rows.)
 
@@ -265,7 +247,7 @@ labevents_duckdb$charttime <-
 arrange(labevents_duckdb, subject_id) %>% head(10)
 nrow(labevents_duckdb)
 ```
-**Answer:** The ingest+convert+select+filter process took 10.1s. The number of rows and first 10 rows of the result tibble match those in Q2.3. \
+**Answer:** The ingest+convert+select+filter process took 7.7s. The number of rows and first 10 rows of the result tibble match those in Q2.3. \
 
 Write a few sentences to explain what is DuckDB. Imagine you want to explain it to a layman in an elevator. \
 
@@ -286,9 +268,11 @@ In later exercises, we are interested in the vitals for ICU patients: heart rate
 Document the steps and show code. Display the number of rows and the first 10 rows of the result tibble.
 
 ```{bash, eval = FALSE}
+#eval set to FALSE to avoid large file to reproduce in full set eval = TRUE
 gzip -dk < ~/mimic/icu/chartevents.csv.gz > ./chartevents.csv
 ```
 ```{r, eval = FALSE}
+#eval set to FALSE to avoid large file to reproduce in full set eval = TRUE
 arrow::write_dataset(
   arrow::open_dataset("chartevents.csv", format = "csv"), 
   "./chartevents.parquet", format = "parquet")
@@ -307,5 +291,6 @@ chartevents_parquet$storetime <-
   with_tz(chartevents_parquet$storetime, tzone = "UTC") %>%
   force_tz(tzone = "US/Eastern")
 nrow(chartevents_parquet)
-arrange(chartevents_parquet, subject_id) %>% head(10) %>% rmarkdown::paged_table()
+arrange(chartevents_parquet, subject_id) %>% head(10) %>% 
+rmarkdown::paged_table()
 ```
