@@ -63,9 +63,10 @@ There are quite a few utilities in R for reading plain text data files. Let us t
 
 Which function is fastest? Is there difference in the (default) parsed data types? How much memory does each resultant dataframe or tibble use? (Hint: `system.time` measures run times; `pryr::object_size` measures memory usage.) 
 
-```{r, eval = TRUE}
+```{r}
 system.time(admissions_base <- read.csv("~/mimic/hosp/admissions.csv.gz"))
-system.time(admissions_tidyverse <- read_csv("~/mimic/hosp/admissions.csv.gz", show_col_types = FALSE))
+system.time(admissions_tidyverse <-
+  read_csv("~/mimic/hosp/admissions.csv.gz", show_col_types = FALSE))
 system.time(admissions_fread <- fread("~/mimic/hosp/admissions.csv.gz"))
 head(admissions_base, width = Inf)
 head(admissions_tidyverse, width = Inf)
@@ -80,23 +81,25 @@ pryr::object_size(admissions_fread)
 
 Re-ingest `admissions.csv.gz` by indicating appropriate column data types in `read_csv`. Does the run time change? How much memory does the result tibble use? (Hint: `col_types` argument in `read_csv`.)
 ```{r}
-system.time(admissions_tidyverse <- read_csv("~/mimic/hosp/admissions.csv.gz", col_types = cols(
-  subject_id = col_integer(), 
-  hadm_id = col_integer(), 
-  admittime = col_datetime(), 
-  dischtime = col_datetime(), 
-  deathtime = col_datetime(), 
-  admission_type = col_factor(),
-  admit_provider_id = col_character(),
-  admission_location = col_factor(), 
-  discharge_location = col_factor(), 
-  insurance = col_factor(), 
-  language = col_factor(), 
-  marital_status = col_factor(),
-  race = col_factor(),
-  edregtime = col_datetime(),
-  edouttime = col_datetime(),
-  hospital_expire_flag = col_factor())))
+system.time(admissions_tidyverse <- read_csv("~/mimic/hosp/admissions.csv.gz", 
+  col_types = cols(
+    subject_id = col_integer(),
+    hadm_id = col_integer(),
+    admittime = col_datetime(),
+    dischtime = col_datetime(),
+    deathtime = col_datetime(),
+    admission_type = col_factor(),
+    admit_provider_id = col_character(),
+    admission_location = col_factor(),
+    discharge_location = col_factor(),
+    insurance = col_factor(),
+    language = col_factor(),
+    marital_status = col_factor(),
+    race = col_factor(),
+    edregtime = col_datetime(),
+    edouttime = col_datetime(),
+    hospital_expire_flag = col_factor()
+)))
 head(admissions_tidyverse, width = Inf)
 pryr::object_size(admissions_tidyverse)
 ```
@@ -133,7 +136,10 @@ labevents_tidyverse <- read_csv("~/mimic/hosp/labevents.csv.gz")
 
 Try to ingest only columns `subject_id`, `itemid`, `charttime`, and `valuenum` in `labevents.csv.gz` using `read_csv`.  Does this solve the ingestion issue? (Hint: `col_select` argument in `read_csv`.)
 ```{r, eval = FALSE}
-labevents_tidyverse <- read_csv("~/mimic/hosp/labevents.csv.gz", col_select = c(subject_id, itemid, charttime, valuenum))
+labevents_tidyverse <- 
+  read_csv("~/mimic/hosp/labevents.csv.gz", 
+    col_select = c(subject_id, itemid, charttime, valuenum)
+  )
 ```
 **Answer:** The `read_csv` function still takes more than 5 minutes to ingest `labevents.csv.gz` even when only the selected columns are ingested. This is because the file is still too large.
 
@@ -148,7 +154,11 @@ Our first strategy to handle this big data file is to make a subset of the `labe
 In later exercises, we will only be interested in the following lab items: creatinine (50912), potassium (50971), sodium (50983), chloride (50902), bicarbonate (50882), hematocrit (51221), white blood cell count (51301), and glucose (50931) and the following columns: `subject_id`, `itemid`, `charttime`, `valuenum`. Write a Bash command to extract these columns and rows from `labevents.csv.gz` and save the result to a new file `labevents_filtered.csv.gz` in the current working directory. (Hint: use `zcat <` to pipe the output of `labevents.csv.gz` to `awk` and then to `gzip` to compress the output. To save render time, put `#| eval: false` at the beginning of this code chunk.)
 
 ```{bash, eval = FALSE}
-(zcat < ~/mimic/hosp/labevents.csv.gz | awk -F, 'BEGIN {OFS=","} ; NR==1 {print $2,$5,$7,$10} ; NR>1 {if ($5 == 50912 || $5 == 50971 || $5 == 50983 || $5 == 50902 || $5 == 50882 || $5 == 51221 || $5 == 51301 || $5 == 50931) print $2,$5,$7,$10}' | gzip) > labevents_filtered.csv.gz
+zcat < ~/mimic/hosp/labevents.csv.gz | \
+awk -F, 'BEGIN {OFS=","} ; NR==1 {print $2,$5,$7,$10} ; \
+NR>1 {if ($5 == 50912 || $5 == 50971 || $5 == 50983 || \
+$5 == 50902 || $5 == 50882 || $5 == 51221 || $5 == 51301 || \
+$5 == 50931) print $2,$5,$7,$10}' | gzip > labevents_filtered.csv.gz
 ```
 Display the first 10 lines of the new file `labevents_filtered.csv.gz`. How many lines are in this new file? How long does it take `read_csv` to ingest `labevents_filtered.csv.gz`?
 ```{bash}
@@ -157,7 +167,6 @@ zcat < ./labevents_filtered.csv.gz | wc -l
 ```
 ```{r, message = F}
 system.time(labevents_filtered <- read_csv("labevents_filtered.csv.gz"))
-head(labevents_filtered, 10)
 ```
 **Answer:** The first 10 lines of the new file `labevents_filtered.csv.gz` are displayed. There are 24855910 lines in this new file. The `read_csv` function takes 16.046s to ingest `labevents_filtered.csv.gz`. 
 
@@ -177,12 +186,15 @@ Then use [`arrow::open_dataset`](https://arrow.apache.org/docs/r/reference/open_
 
 ```{r}
 system.time(
-  labevents_arrow <- arrow::open_dataset("labevents.csv", format = "csv") %>% 
-    dplyr::select(subject_id, itemid, charttime, valuenum) %>% 
-    dplyr::filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>% 
-    collect())
+  labevents_arrow <- arrow::open_dataset("labevents.csv", format = "csv") %>%
+    select(subject_id, itemid, charttime, valuenum) %>%
+    filter(itemid %in% 
+      c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
+    mutate(charttime = force_tz(charttime, tzone = "US/Eastern")) %>%
+    collect()
+)
 
-dplyr::arrange(labevents_arrow, subject_id) %>% head(10)
+arrange(labevents_arrow, subject_id) %>% head(10)
 nrow(labevents_arrow)
 ```
 **Answer:** The ingest+select+filter process took 32.3s.  There are 24855909 rows in the resulting tibble which is the same as labevents_filtered.csv.gz because in labevents_filtered.csv.gz the first row is the headings row. The first 10 rows of the result tibble match those in Q2.3. \
@@ -200,18 +212,23 @@ Write a few sentences to explain what is Apache Arrow. Imagine you want to expla
 Re-write the csv file `labevents.csv` in the binary Parquet format (Hint: [`arrow::write_dataset`](https://arrow.apache.org/docs/r/reference/write_dataset.html).) How large is the Parquet file(s)? How long does the ingest+select+filter process of the Parquet file(s) take? Display the number of rows and the first 10 rows of the result tibble and make sure they match those in Q2.3. (Hint: use `dplyr` verbs for selecting columns and filtering rows.)
 
 ```{r, eval = FALSE}
-arrow::write_dataset(arrow::open_dataset("labevents.csv", format = "csv"), ".", format = "parquet")
+arrow::write_dataset(
+  arrow::open_dataset("labevents.csv", format = "csv"), 
+  "./labevents.parquet", format = "parquet")
 ```
 ```{r}
 system.time(
-  labevents_parquet <- arrow::open_dataset("part-0.parquet", format = "parquet") %>% 
-    dplyr::select(subject_id, itemid, charttime, valuenum) %>% 
-    dplyr::filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>% 
-    collect())
+  labevents_parquet <- 
+    arrow::open_dataset("./labevents.parquet/part-0.parquet", format = "parquet") %>%
+    dplyr::select(subject_id, itemid, charttime, valuenum) %>%
+    dplyr::filter(itemid %in% 
+      c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
+    collect()
+)
 dplyr::arrange(labevents_parquet, subject_id) %>% head(10)
 nrow(labevents_parquet)
 ```
-**Answer:** The Parquet file is 1.9GB which is significantly smaller than the original labevents.csv file. The ingest+select+filter process of the Parquet file took 7.3s which is also a lot faster. The number of rows and first 10 rows of the result tibble match those in Q2.3. \
+**Answer:** The Parquet file is 1.9GB which is significantly smaller than the original labevents.csv file. The ingest+select+filter process of the Parquet file took 7.3s which is also a lot faster than just ingesting by Apache Arrow. The number of rows and first 10 rows of the result tibble match those in Q2.3. \
 
 Write a few sentences to explain what is the Parquet format. Imagine you want to explain it to a layman in an elevator. \
 
@@ -227,11 +244,17 @@ Ingest the Parquet file, convert it to a DuckDB table by [`arrow::to_duckdb`](ht
 
 ```{r}
 system.time(
-  labevents_duckdb <- arrow::open_dataset("part-0.parquet", format = "parquet") %>% 
+  labevents_duckdb <- 
+    arrow::open_dataset("./labevents.parquet/part-0.parquet", 
+      format = "parquet") %>%
     arrow::to_duckdb() %>%
-    dplyr::select(subject_id, itemid, charttime, valuenum) %>% 
-    dplyr::filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
-    collect())
+    dplyr::select(subject_id, itemid, charttime, valuenum) %>%
+    dplyr::filter(itemid %in% 
+      c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) %>%
+    collect()
+)
+labevents_duckdb$charttime <- 
+  with_tz(labevents_duckdb$charttime, tzone = "America/New_York")
 dplyr::arrange(labevents_duckdb, subject_id) %>% head(10)
 nrow(labevents_duckdb)
 ```
@@ -255,3 +278,21 @@ In later exercises, we are interested in the vitals for ICU patients: heart rate
 
 Document the steps and show code. Display the number of rows and the first 10 rows of the result tibble.
 
+```{bash, eval = FALSE}
+gzip -dk < ~/mimic/icu/chartevents.csv.gz > ./chartevents.csv
+```
+```{r, eval = FALSE}
+arrow::write_dataset(
+  arrow::open_dataset("chartevents.csv", format = "csv"), 
+  "./chartevents.parquet", format = "parquet")
+```
+```{r}
+chartevents_parquet <- 
+  arrow::open_dataset("./chartevents.parquet/part-0.parquet", 
+    format = "parquet") %>%
+  dplyr::filter(itemid %in% c(220045, 220181, 220179, 223761, 220210)) %>%
+  collect()
+
+nrow(chartevents_parquet)
+dplyr::arrange(chartevents_parquet, subject_id) %>% head(10)
+```
