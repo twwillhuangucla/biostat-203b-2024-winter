@@ -27,6 +27,7 @@ library(memuse)
 library(pryr)
 library(R.utils)
 library(tidyverse)
+library(ggrepel)
 ```
 
 Display your machine memory.
@@ -63,11 +64,15 @@ arrow::write_dataset(
 ```
 Patient of interest:
 ```{r}
-sid <- 10013310
+sid <- 10001217
 ```
 Import csv files:
 ```{r, message=FALSE}
 sid_adt <- read_csv("~/mimic/hosp/transfers.csv.gz") |>
+  filter(subject_id == sid) |>
+  print(width = Inf)
+
+sid_adm <- read_csv("~/mimic/hosp/admissions.csv.gz") |>
   filter(subject_id == sid) |>
   print(width = Inf)
 
@@ -126,15 +131,16 @@ sid_adt |>
       x = charttime, 
       y = "Lab"),
     shape = 3) +
-  guides(shape = "none") +
   geom_point(data = sid_proc, aes(
     x = chartdate, 
     y = "Procedure",
     shape = long_title)) +
+  guides(shape = guide_legend(title = "Procedure")) +
   labs(
     title = str_c("Patient ", sid, ", ",
       sid_patients$gender[1], ", ", 
-      sid_patients$anchor_age[1], " years old"), 
+      sid_patients$anchor_age[1], " years old, ",
+      sid_adm$race[1]), 
     subtitle = str_c(sid_diag$long_title[1], "\n", 
       sid_diag$long_title[2], "\n", 
       sid_diag$long_title[3]),
@@ -156,8 +162,54 @@ ICU stays are a subset of ADT history. This figure shows the vitals of the patie
 
 Do a similar visualization for the patient `10013310`.
 
+**Answer:**
+```{bash, eval = FALSE}
+#eval set to FALSE to avoid large file to reproduce in full set eval = TRUE
+gzip -dk < ~/mimic/hosp/chartevents.csv.gz > ./chartevents.csv
+```
+```{r, eval = FALSE}
+#eval set to FALSE to avoid large file to reproduce in full set eval = TRUE
+arrow::write_dataset(
+  arrow::open_dataset("chartevents.csv", format = "csv"),
+  "./chartevents.parquet", format = "parquet")
+```
+```{r}
+d_items <- read_csv("~/mimic/icu/d_items.csv.gz") |>
+  print(width = Inf)
 
-
+sid_chart <- 
+  arrow::open_dataset("./chartevents.parquet/part-0.parquet", 
+    format = "parquet") |>
+  filter(subject_id == sid) |>
+  collect() |>
+  mutate(abbreviation = d_items$abbreviation[match(itemid, d_items$itemid)]) |>
+  filter(abbreviation %in% c("HR", "NBPd", "NBPs", "RR", "Temperature F")) |>
+  mutate(value = as.numeric(value)) |>
+  arrange(itemid, charttime) |>
+  print(width = Inf)
+```
+```{r}
+sid_chart |>
+  ggplot() +
+  geom_point(aes(
+    x = charttime, 
+    y = value, 
+    color = abbreviation)) +
+  geom_line(aes(
+    x = charttime, 
+    y = value, 
+    color = abbreviation)) +
+  guides(color = "none") +
+  facet_grid(abbreviation ~ stay_id, scales = "free") +
+  scale_x_datetime(guide = guide_axis(n.dodge = 2)) +
+  labs(
+    title = str_c("Patient ", sid, " ICU Vitals"),
+    x = "",
+    y = "")+
+  theme_bw() +
+  theme(strip.text = element_text(
+    size = 6))
+```
 ## Q2. ICU stays
 
 `icustays.csv.gz` (<https://mimic.mit.edu/docs/iv/modules/icu/icustays/>) contains data about Intensive Care Units (ICU) stays. The first 10 lines are
@@ -168,6 +220,12 @@ zcat < ~/mimic/icu/icustays.csv.gz | head
 ### Q2.1 Ingestion
 
 Import `icustays.csv.gz` as a tibble `icustays_tble`. 
+
+**Answer:**
+```{r}
+icustays_tble <- read_csv("~/mimic/icu/icustays.csv.gz") |>
+  print(width = Inf)
+```
 
 ### Q2.2 Summary and visualization
 
