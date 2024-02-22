@@ -65,21 +65,22 @@ Patient of interest:
 ```{r}
 sid <- 10013310
 ```
-Import 'transfers.csv.gz' as a tibble 'transfers_tbl'
+Import csv files:
 ```{r, message=FALSE}
 sid_adt <- read_csv("~/mimic/hosp/transfers.csv.gz") |>
   filter(subject_id == sid) |>
   print(width = Inf)
-```
-```{r}
+
 sid_lab <- 
   arrow::open_dataset("./labevents.parquet/part-0.parquet", 
     format = "parquet") |>
   filter(subject_id == sid) |>
   collect() |>
   print(width = Inf)
-```
-```{r}
+
+d_icd_proc <- read_csv("~/mimic/hosp/d_icd_procedures.csv.gz") |>
+  print(width = Inf)
+
 sid_proc <- read_csv("~/mimic/hosp/procedures_icd.csv.gz",
     col_types = cols(
       subject_id = col_integer(),
@@ -89,6 +90,25 @@ sid_proc <- read_csv("~/mimic/hosp/procedures_icd.csv.gz",
       icd_code = col_character(),
       icd_version = col_integer())) |>
   filter(subject_id == sid) |>
+  mutate(long_title = d_icd_proc$long_title[match(icd_code, d_icd_proc$icd_code)]) |>
+  print(width = Inf)
+
+sid_patients <- read_csv("~/mimic/hosp/patients.csv.gz") |>
+  filter(subject_id == sid) |>
+  print(width = Inf)
+
+d_icd_diag <- read_csv("~/mimic/hosp/d_icd_diagnoses.csv.gz") |>
+  print(width = Inf)
+
+sid_diag <- read_csv("~/mimic/hosp/diagnoses_icd.csv.gz",
+    col_types = cols(
+      subject_id = col_integer(),
+      hadm_id = col_integer(),
+      seq_num = col_integer(),
+      icd_code = col_character(),
+      icd_version = col_integer())) |>
+  filter(subject_id == sid) |>
+  mutate(long_title = d_icd_diag$long_title[match(icd_code, d_icd_diag$icd_code)]) |>
   print(width = Inf)
 ```
 ```{r}
@@ -100,25 +120,31 @@ sid_adt |>
     y = "ADT", yend = "ADT", 
     color = careunit,
     linewidth = str_detect(careunit, "(ICU|CCU)"))) +
-  geom_point(data = sid_lab, aes(
-    x = charttime, 
-    y = "Lab", 
-    shape = "lab")) +
+  guides(linewidth = "none") +
+  geom_point(data = sid_lab, 
+    aes(
+      x = charttime, 
+      y = "Lab"),
+    shape = 3) +
+  guides(shape = "none") +
   geom_point(data = sid_proc, aes(
     x = chartdate, 
     y = "Procedure",
-    shape = "procedure")) +
+    shape = long_title)) +
   labs(
-    title = "Demographic: ", 
-    subtitle = "Top 3 diagnoses: ",
+    title = str_c("Patient ", sid, ", ",
+      sid_patients$gender[1], ", ", 
+      sid_patients$anchor_age[1], " years old"), 
+    subtitle = str_c(sid_diag$long_title[1], "\n", 
+      sid_diag$long_title[2], "\n", 
+      sid_diag$long_title[3]),
     x = "Calendar Time",
     y = ""
     ) +
   scale_y_discrete(limits = c("Procedure", "Lab", "ADT")) +
-  scale_shape_manual(values = c(3, 4)) +
-  guides(linewidth = "none", shape = "none") +
   theme_minimal() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom",
+    legend.box = "vertical")
 ```
 
 
@@ -129,6 +155,8 @@ ICU stays are a subset of ADT history. This figure shows the vitals of the patie
 ![](10001217_icu.png)
 
 Do a similar visualization for the patient `10013310`.
+
+
 
 ## Q2. ICU stays
 
