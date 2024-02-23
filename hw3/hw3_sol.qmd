@@ -147,7 +147,7 @@ sid_adt |>
     subtitle = str_c(sid_diag$long_title[1], "\n", 
       sid_diag$long_title[2], "\n", 
       sid_diag$long_title[3]),
-    x = "Calendar Time",
+    x = "",
     y = "",
     shape = "Procedure"
     ) +
@@ -470,15 +470,15 @@ Let us create a tibble `mimic_icu_cohort` for all ICU stays, where rows are all 
 The final `mimic_icu_cohort` should have one row per ICU stay and columns for each variable.
 
 ![](mimic_icu_cohort.png)
-```{r, eval = FALSE}
+```{r}
 mimic_icu_cohort <- icustays_tble |>
   left_join(admissions_tble, by = c("subject_id", "hadm_id")) |>
   left_join(patients_tble, by = c("subject_id")) |>
-  filter(anchor_age >= 18) |>
+  mutate(age_intime = year(intime)-anchor_year + anchor_age) |>
+  filter(age_intime >= 18) |>
   left_join(labevents_tble, by = c("subject_id", "stay_id")) |>
-  left_join(chartevents_tble, by = c("subject_id", "stay_id")) |>
-  print(width = Inf) |>
-  rmarkdown::paged_table()
+  left_join(chart_tble, by = c("subject_id", "stay_id"))
+mimic_icu_cohort
 ```
 
 ## Q8. Exploratory data analysis (EDA)
@@ -486,6 +486,7 @@ mimic_icu_cohort <- icustays_tble |>
 Summarize the following information about the ICU stay cohort `mimic_icu_cohort` using appropriate numerics or graphs:
 
 - Length of ICU stay `los` vs demographic variables (race, insurance, marital_status, gender, age at intime)
+
 
 - Length of ICU stay `los` vs the last available lab measurements before ICU stay
 
