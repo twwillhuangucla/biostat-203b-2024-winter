@@ -643,7 +643,7 @@ mimic_icu_cohort |>
 
 mimic_icu_cohort |>
   ggplot() +
-  geom_point(aes(x = 'Respiratory Rate', y = los)) +
+  geom_point(aes(x = `Respiratory Rate`, y = los)) +
   labs(
     title = "Length of ICU stay vs respiratory rate",
     x = "Respiratory Rate",
