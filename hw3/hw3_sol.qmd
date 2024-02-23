@@ -1,7 +1,7 @@
 ---
 title: "Biostat 203B Homework 3"
 subtitle: "Due Feb 23 @ 11:59PM"
-author: "Your Name and UID"
+author: "Chun-Siang Huang. 205111921"
 format:
   html:
     theme: cosmo
@@ -117,9 +117,10 @@ sid_diag <- read_csv("~/mimic/hosp/diagnoses_icd.csv.gz",
   filter(subject_id == sid) |>
   mutate(long_title = d_icd_diag$long_title[
     match(icd_code, d_icd_diag$icd_code)]) |>
+  arrange(seq_num) |>
   print(width = Inf)
 ```
-```{r}
+```{r, fig.height = 7, fig.width = 10}
 sid_adt |>
   filter(eventtype != "discharge") |>
   ggplot() +
@@ -250,7 +251,7 @@ unique_subject_ids_count
 icustays_tble |>
   summarise(n_icu_stays = n(), .by = subject_id) |>
   ggplot() +
-  geom_histogram(aes(x = n_icu_stays, )) +
+  geom_bar(aes(x = n_icu_stays, )) +
   labs(
     title = "Number of ICU stays per subject_id",
     x = "Number of ICU stays",
@@ -298,7 +299,7 @@ According to the [MIMIC-IV documentation](https://mimic.mit.edu/docs/iv/about/co
 admissions_tble |>
   summarise(n_admissions = n(), .by = subject_id) |>
   ggplot() +
-  geom_histogram(aes(x = n_admissions)) +
+  geom_bar(aes(x = n_admissions)) +
   labs(
     title = "Number of admissions per patient",
     x = "Number of admissions",
@@ -612,6 +613,14 @@ mimic_icu_cohort |>
   labs(
     title = "Length of ICU stay vs white blood cell count",
     x = "White Blood Cell Count",
+    y = "Length of ICU stay")
+
+mimic_icu_cohort |>
+  ggplot() +
+  geom_point(aes(x = Glucose, y = los)) +
+  labs(
+    title = "Length of ICU stay vs glucose",
+    x = "Glucose",
     y = "Length of ICU stay")
 ```
 
