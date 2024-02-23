@@ -126,7 +126,6 @@ sid_adt |>
     y = "ADT", yend = "ADT", 
     color = careunit,
     linewidth = str_detect(careunit, "(ICU|CCU)"))) +
-  guides(linewidth = "none") +
   geom_point(data = sid_lab, 
     aes(
       x = charttime, 
@@ -136,7 +135,10 @@ sid_adt |>
     x = chartdate, 
     y = "Procedure",
     shape = long_title)) +
-  guides(shape = guide_legend(title = "Procedure")) +
+  guides(linewidth = "none", shape = guide_legend(nrow = 9)) +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+    legend.box = "vertical") +
   labs(
     title = str_c("Patient ", sid, ", ",
       sid_patients$gender[1], ", ", 
@@ -146,13 +148,11 @@ sid_adt |>
       sid_diag$long_title[2], "\n", 
       sid_diag$long_title[3]),
     x = "Calendar Time",
-    y = ""
+    y = "",
+    shape = "Procedure"
     ) +
   scale_y_discrete(limits = c("Procedure", "Lab", "ADT")) +
-  scale_shape_manual(values = c(1:9)) +
-  theme_minimal() +
-  theme(legend.position = "bottom",
-    legend.box = "vertical")
+  scale_shape_manual(values = c(1:9))
 ```
 
 
@@ -242,6 +242,7 @@ unique_subject_ids_count <- icustays_tble %>% summarise(n_unique_subjects = n_di
 unique_subject_ids_count
 
 icustays_tble |>
+  
   ggplot() +
   geom_bar(aes(x = as.factor(subject_id))) +
   labs(
@@ -396,21 +397,25 @@ d_labitems <- read_csv("~/mimic/hosp/d_labitems.csv.gz") |>
   print(width = Inf)
 
 labevents_tble <- arrow::open_dataset("./labevents.parquet/part-0.parquet", format = "parquet") |>
+  select(subject_id, itemid, valuenum, storetime) |>
   filter(subject_id %in% icustays_tble$subject_id) |>
-  filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) |>
+  filter(itemid %in% c(50912, 50971, 50983,
+                       50902, 50882, 51221, 51301, 50931)) |>
   collect() |>
-  mutate(stay_id = icustays_tble$stay_id[match(subject_id, icustays_tble$subject_id)]) |>
-  mutate(intime = icustays_tble$intime[match(stay_id, icustays_tble$stay_id)]) |>
-  mutate(value = as.numeric(value)) |>
+  mutate(subject_id = as.integer(subject_id)) |>
+  left_join(icustays_tble, by = c("subject_id")) |>
+  select(subject_id, stay_id, itemid, valuenum, storetime, intime) |>
   mutate(itemname = d_labitems$label[match(itemid, d_labitems$itemid)]) |>
-  group_by(stay_id) |>
-  filter(storetime == max(storetime < intime)) |>
+  filter(storetime <= intime) |>
+  group_by(subject_id, stay_id, itemid) |>
+  arrange(storetime, by_group = T) |>
+  slice_tail(n = 1) |>
   ungroup() |>
-  select(subject_id, stay_id, itemname, value) |>
-  pivot_wider(names_from = itemname, values_from = value,
+  select(subject_id,stay_id, itemname, valuenum) |>
+  pivot_wider(names_from = itemname, values_from = valuenum,
               values_fn = list(valuenum = ~ .[1])) |>
-  as.data.frame() |>
-  print(width = Inf)
+  print(width = Inf) |>
+  rmarkdown::paged_table()
 ```
 
 ## Q6. Vitals from charted events
@@ -430,6 +435,27 @@ We are interested in the vitals for ICU patients: heart rate (220045), systolic 
 ![](chartevents_tble.png)
 
 Hint: Use the Parquet format you generated in Homework 2. For reproducibility, make `chartevents_pq` folder available at the current working directory, for example, by a symbolic link.
+```{r}
+chart_tble <- arrow::open_dataset("./chartevents.parquet/part-0.parquet", format = "parquet") |>
+  select(subject_id, itemid, valuenum, charttime) |>
+  filter(subject_id %in% icustays_tble$subject_id) |>
+  filter(itemid %in% c(220045, 220179, 220180, 223761, 220210)) |>
+  collect() |>
+  mutate(subject_id = as.integer(subject_id)) |>
+  left_join(icustays_tble, by = c("subject_id")) |>
+  select(subject_id, stay_id, itemid, valuenum, charttime, intime) |>
+  mutate(itemname = d_items$label[match(itemid, d_items$itemid)]) |>
+  filter(charttime >= intime) |>
+  group_by(subject_id, stay_id, itemid) |>
+  arrange(charttime, by_group = T) |>
+  slice_head(n = 1) |>
+  ungroup() |>
+  select(subject_id,stay_id, itemname, valuenum) |>
+  pivot_wider(names_from = itemname, values_from = valuenum,
+              values_fn = list(valuenum = ~ .[1])) |>
+  print(width = Inf) |>
+  rmarkdown::paged_table()
+```
 
 ## Q7. Putting things together
 
@@ -444,6 +470,16 @@ Let us create a tibble `mimic_icu_cohort` for all ICU stays, where rows are all 
 The final `mimic_icu_cohort` should have one row per ICU stay and columns for each variable.
 
 ![](mimic_icu_cohort.png)
+```{r, eval = FALSE}
+mimic_icu_cohort <- icustays_tble |>
+  left_join(admissions_tble, by = c("subject_id", "hadm_id")) |>
+  left_join(patients_tble, by = c("subject_id")) |>
+  filter(anchor_age >= 18) |>
+  left_join(labevents_tble, by = c("subject_id", "stay_id")) |>
+  left_join(chartevents_tble, by = c("subject_id", "stay_id")) |>
+  print(width = Inf) |>
+  rmarkdown::paged_table()
+```
 
 ## Q8. Exploratory data analysis (EDA)
 
