@@ -137,7 +137,7 @@ chartevents_tble <- tbl(con_bq, "chartevents") |>
 
 This step is similar to Q7 of HW3. Using _one_ chain of pipes `|>` to perform following data wrangling steps: (i) start with the `icustays_tble`, (ii) merge in admissions and patients tables, (iii) keep adults only (age at ICU intime >= 18), (iv) merge in the labevents and chartevents tables, (v) `collect` the tibble.
 
-```{r}
+```{r, warning = F}
 mimic_icu_cohort <- icustays_tble |>
   left_join(admissions_tble, by = c("subject_id", "hadm_id")) |>
   left_join(patients_tble, by = c("subject_id")) |>
@@ -146,6 +146,7 @@ mimic_icu_cohort <- icustays_tble |>
   left_join(labevents_tble, by = c("subject_id", "stay_id")) |>
   left_join(chartevents_tble, by = c("subject_id", "stay_id")) |>
   arrange(subject_id, stay_id) |>
+  collect() |>
   print(width = Inf)
 ```
 
@@ -156,6 +157,35 @@ Perform the following preprocessing steps. (i) Lump infrequent levels into "Othe
 Hint: Below is a numerical summary of my tibble after preprocessing:
 
 <iframe width=95% height="500" src="./mimic_icu_cohort_gtsummary.html"></iframe>
+
+```{r}
+mimic_icu_cohort <- mimic_icu_cohort |>
+  mutate(
+    first_careunit = fct_lump(first_careunit, n = 4),
+    last_careunit = fct_lump(last_careunit, n = 4),
+    admission_type = fct_lump(admission_type, n = 4),
+    admission_location = fct_lump(admission_location, n = 3),
+    discharge_location = fct_lump(discharge_location, n = 4),
+    race = case_when(
+      str_detect(race, "^ASIAN") ~ "ASIAN",
+      str_detect(race, "^BLACK") ~ "BLACK",
+      str_detect(race, "^HISPANIC") ~ "HISPANIC",
+      str_detect(race, "^WHITE") ~ "WHITE",
+      TRUE ~ "Other")) |>
+  mutate(
+    los_long = los >= 2)
+
+mimic_icu_cohort_processed <- mimic_icu_cohort |>
+  select(-subject_id, -hadm_id, -stay_id, -intime, 
+         -outtime, -admittime, -dischtime, -deathtime, 
+         -admit_provider_id, -edregtime, -edouttime, -anchor_age, 
+         -anchor_year, -anchor_year_group) |>
+  print(width = Inf)
+
+tbl_summary(mimic_icu_cohort_processed, by = los_long)
+    
+
+```
 
 ### Q1.9 Save the final tibble
 
