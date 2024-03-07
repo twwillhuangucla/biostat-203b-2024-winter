@@ -12,7 +12,7 @@ format:
     toc-location: left
     code-fold: false
 execute:
-  eval: false
+  eval: true
 ---
 
 Display machine information:
@@ -115,9 +115,22 @@ labevents_tble <- tbl(con_bq, "labevents") |>
 
 Connect to `chartevents` table and retrieve a subset that only contain subjects who appear in `icustays_tble` and the chart events listed in HW3. Only keep the first chart events during ICU stay and pivot chart events to become variables/columns. Write all steps in _one_ chain of pipes.
 ```{r}
+d_items <- tbl(con_bq, "d_items")
+
 chartevents_tble <- tbl(con_bq, "chartevents") |>
-  left_join(icustays_tble, by = c("subject_id")) |>
-  
+  left_join(icustays_tble, by = c("subject_id", "stay_id")) |>
+  filter(itemid %in% c(220045, 220179, 220180, 223761, 220210)) |>
+  left_join(d_items, by = "itemid") |>
+  select(subject_id, stay_id, label, valuenum, charttime, intime) |>
+  filter(charttime >= intime) |>
+  slice_min(charttime, by = c(subject_id, stay_id, label), n = 1) |>
+  pivot_wider(names_from = label,
+              values_from = valuenum) |>
+  select(-charttime, -intime) |>
+  group_by(subject_id, stay_id) |>
+  summarize_all(sum) |>
+  arrange(subject_id, stay_id) |>
+  print(width = Inf)
 ```
 
 ### Q1.7 Put things together
@@ -140,7 +153,7 @@ Hint: Below is a numerical summary of my tibble after preprocessing:
 ### Q1.9 Save the final tibble
 
 Save the final tibble to an R data file `mimic_icu_cohort.rds` in the `mimiciv_shiny` folder.
-```{r}
+```{r, eval = F}
 # make a directory mimiciv_shiny
 if (!dir.exists("mimiciv_shiny")) {
   dir.create("mimiciv_shiny")
@@ -150,7 +163,7 @@ mimic_icu_cohort |>
   write_rds("mimiciv_shiny/mimic_icu_cohort.rds", compress = "gz")
 ```
 Close database connection and clear workspace.
-```{r}
+```{r, eval = F}
 if (exists("con_bq")) {
   dbDisconnect(con_bq)
 }
