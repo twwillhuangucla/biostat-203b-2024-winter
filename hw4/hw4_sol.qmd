@@ -161,8 +161,8 @@ Hint: Below is a numerical summary of my tibble after preprocessing:
 ```{r}
 mimic_icu_cohort <- mimic_icu_cohort |>
   mutate(
-    first_careunit = fct_lump(first_careunit, n = 4),
-    last_careunit = fct_lump(last_careunit, n = 4),
+    first_careunit = fct_lump(first_careunit, n = 5),
+    last_careunit = fct_lump(last_careunit, n = 5),
     admission_type = fct_lump(admission_type, n = 4),
     admission_location = fct_lump(admission_location, n = 3),
     discharge_location = fct_lump(discharge_location, n = 4),
@@ -172,8 +172,8 @@ mimic_icu_cohort <- mimic_icu_cohort |>
       str_detect(race, "^HISPANIC") ~ "HISPANIC",
       str_detect(race, "^WHITE") ~ "WHITE",
       TRUE ~ "Other")) |>
-  mutate(
-    los_long = los >= 2)
+  mutate( los_long = los >= 2) |>
+  mutate( los_long = as.factor(los_long))
 
 mimic_icu_cohort_processed <- mimic_icu_cohort |>
   select(-subject_id, -hadm_id, -stay_id, -intime, 
@@ -216,3 +216,8 @@ Develop a Shiny app for exploring the ICU cohort data created in Q1. The app sho
 ![](Q2example2.png)
 
 ![](Q2example3.png)
+
+```{r, message = F, warning = F, eval = F}
+library(shiny)
+runApp("./mimiciv_shiny/app.R")
+```
