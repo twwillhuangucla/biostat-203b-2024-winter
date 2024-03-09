@@ -44,46 +44,46 @@ id_list <- mimic_icu_cohort |>
 ui <- fluidPage(
   tabsetPanel(
     tabPanel("Patient Characteristics",
-             sidebarLayout(
-               sidebarPanel(
-                 selectInput("variable", 
-                             label = "Select a Variable",
-                             choices = c("First care unit" = "first_careunit", 
-                                         "Last care unit" = "last_careunit", 
-                                         "Long stays" = "los_long",
-                                         "Admission type" = "admission_type",
-                                         "Admission location" = "admission_location",
-                                         "Discharge location" = "discharge_location",
-                                         "Race" = "race",
-                                         "Insurance status" = "insurance",
-                                         "Marital status" = "marital_status",
-                                         "Gender" = "gender",
-                                         "Age" = "age_intime",
-                                         "Lab events" = "lab_events",
-                                         "Vitals" = "vitals")),
-                 checkboxInput("outliers", 
-                               "Remove outliers in IQR method for measurements?", F),
-               ),
-               
-               mainPanel(
-                 plotOutput("varplot"),
-                 gt_output("summary")
-               )
-             )
+      sidebarLayout(
+       sidebarPanel(
+         selectInput("variable", 
+                     label = "Select a Variable",
+                     choices = c("First care unit" = "first_careunit", 
+                                 "Last care unit" = "last_careunit", 
+                                 "Long stays" = "los_long",
+                                 "Admission type" = "admission_type",
+                                 "Admission location" = "admission_location",
+                                 "Discharge location" = "discharge_location",
+                                 "Race" = "race",
+                                 "Insurance status" = "insurance",
+                                 "Marital status" = "marital_status",
+                                 "Gender" = "gender",
+                                 "Age" = "age_intime",
+                                 "Lab events" = "lab_events",
+                                 "Vitals" = "vitals")),
+         checkboxInput("outliers", 
+                       "Remove outliers in IQR method for measurements?", F),
+       ),
+       
+       mainPanel(
+         plotOutput("varplot"),
+         gt_output("summary")
+       )
+      )
   
     ),
     tabPanel("Patient's ADT and ICU stay information",
-             sidebarLayout(
-               sidebarPanel(
-                 selectizeInput("patient_ID", 
-                             label = "Select a Patient", 
-                             choices = id_list,
-                             options = list(maxOptions = 5)),
-               ),
-               mainPanel(
-                 plotOutput("sidplot", height = "500px")
-               )
-             )
+      sidebarLayout(
+       sidebarPanel(
+         selectizeInput("patient_ID", 
+                     label = "Select a Patient", 
+                     choices = NULL,
+                     options = list(maxOptions = 5)),
+       ),
+       mainPanel(
+         plotOutput("sidplot", height = "500px")
+       )
+      )
     )
     
   )
@@ -91,7 +91,7 @@ ui <- fluidPage(
 
 
 # Define server logic to summarize and view selected dataset ----
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   #First panel
   #Plot
@@ -145,18 +145,20 @@ server <- function(input, output) {
     if (input$variable == "vitals") {
       table <- vitals_data |>
         tbl_summary(by = vitals, type = list(value ~ "continuous2"),
-                    statistic = list(all_continuous() ~ c("{mean} ({sd})",
-                                                          "{median} [{p25}, {p75}]",
-                                                          "{min}, ({max})"))) |>
+                    statistic = list(
+                      all_continuous() ~ c("{mean} ({sd})",
+                                           "{median} [{p25}, {p75}]",
+                                           "{min}, {max}"))) |>
         as_gt()
     }
     
     else if (input$variable == "lab_events") {
       table <- lab_data |>
         tbl_summary(by = lab_items, type = list(value ~ "continuous2"),
-                    statistic = list(all_continuous() ~ c("{mean} ({sd})",
-                                                          "{median} [{p25}, {p75}]",
-                                                          "{min}, ({max})"))) |>
+                    statistic = list(
+                      all_continuous() ~ c("{mean} ({sd})",
+                                           "{median} [{p25}, {p75}]", 
+                                           "{min}, {max}"))) |>
         as_gt()
     }
     
@@ -164,9 +166,10 @@ server <- function(input, output) {
       table <- mimic_icu_cohort |>
         select(age_intime) |>
         tbl_summary(type = list(age_intime ~ "continuous2"),
-                    statistic = list(all_continuous() ~ c("{mean} ({sd})",
-                                                          "{median} [{p25}, {p75}]",
-                                                          "{min}, {max}"))) |>
+                    statistic = list(
+                      all_continuous() ~ c("{mean} ({sd})", 
+                                           "{median} [{p25}, {p75}]", 
+                                           "{min}, {max}"))) |>
         as_gt()
     }
     
@@ -179,6 +182,15 @@ server <- function(input, output) {
   })
 
   #Second panel
+  
+  #Observe patient ID
+  observe({
+    updateSelectizeInput(session, "patient_ID", 
+                         choices = id_list,
+                         server = T)
+  })
+  
+  #Connect to BigQuery
   satoken <- "biostat-203b-2024-winter-313290ce47a6.json"
   bq_auth(path = satoken)
   con_bq <- dbConnect(
@@ -228,6 +240,7 @@ server <- function(input, output) {
     arrange(seq_num)
   })
   
+  #plot
   output$sidplot <- renderPlot({
     ggplot() +
       geom_segment(data = sid_adt(), aes(
