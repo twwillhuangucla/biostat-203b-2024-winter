@@ -22,8 +22,11 @@ Using the ICU cohort `mimiciv_icu_cohort.rds` you built in Homework 4, develop a
 # Load libraries
 library(GGally)
 library(gtsummary)
+library(ranger)
 library(tidyverse)
 library(tidymodels)
+library(xgboost)
+
 
 # Load data
 mimic_icu_cohort <- readRDS("mimic_icu_cohort.rds")
@@ -166,4 +169,88 @@ final_logit_fit
 
 final_logit_fit |> 
   collect_metrics()
+```
+
+### Boosting
+```{r}
+library(doParallel)
+registerDoParallel(cores = 4)
+
+# Preprocessing
+boost_recipe <- recipe(los_long ~ ., data = data_train) |>
+  step_impute_mean(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_numeric_predictors()) |>
+  step_normalize(all_numeric_predictors())
+
+# Model
+boost_mod <- 
+  boost_tree(
+    mode = "classification",
+    trees = 1000, 
+    tree_depth = tune(), 
+    learn_rate = tune()
+  ) |> 
+  set_engine("xgboost")
+boost_mod
+
+# Workflow
+boost_wf <- 
+  workflow() |>
+  add_recipe(boost_recipe) |>
+  add_model(boost_mod)
+
+# Tuning
+boost_grid <- grid_regular(
+  tree_depth(range = c(1L, 3L)),
+  learn_rate(range = c(-5, 2), trans = log10_trans()),
+  levels = c(3, 5)
+  )
+```
+
+```{r}
+# Cross validation
+set.seed(203)
+
+boost_fit <- boost_wf |>
+  tune_grid(
+    resamples = folds,
+    grid = boost_grid,
+    metrics = metric_set(roc_auc, accuracy)
+  )
+
+boost_fit |>
+  collect_metrics() |>
+  print(width = Inf) |>
+  filter(.metric == "roc_auc") |>
+  ggplot(mapping = aes(x = learn_rate, y = mean, color = factor(tree_depth))) +
+  geom_point() +
+  labs(x = "Learning Rate", y = "CV AUC") +
+  scale_x_log10()
+
+boost_fit |>
+  show_best("roc_auc")
+
+best_boost <- boost_fit |>
+  select_best("roc_auc")
+best_boost
+```
+
+```{r}
+# Testing
+# Final workflow
+final_boost_wf <- boost_wf |>
+  finalize_workflow(best_boost)
+final_boost_wf
+
+# Fit the whole training set, then predict the test cases
+final_boost_fit <- 
+  final_boost_wf |>
+  last_fit(data_split)
+
+final_boost_fit |>
+  collect_metrics()
+
+stopImplicitCluster()
 ```
