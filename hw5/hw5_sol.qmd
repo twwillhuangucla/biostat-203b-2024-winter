@@ -1,7 +1,7 @@
 ---
 title: "Biostat 203B Homework 5"
 subtitle: Due Mar 22 @ 11:59PM
-author: "Your Name and UID"
+author: "Chun-Siang Huang and 205111921"
 format:
   html:
     theme: cosmo
@@ -18,24 +18,152 @@ format:
 Using the ICU cohort `mimiciv_icu_cohort.rds` you built in Homework 4, develop at least three machine learning approaches (logistic regression with enet regularization, random forest, boosting, SVM, MLP, etc) plus a model stacking approach for predicting whether a patient's ICU stay will be longer than 2 days. You should use the `los_long` variable as the outcome. You algorithms can use patient demographic information (gender, age at ICU `intime`, marital status, race), ICU admission information (first care unit), the last lab measurements before the ICU stay, and first vital measurements during ICU stay as features. You are welcome to use any feature engineering techniques you think are appropriate; but make sure to not use features that are not available at an ICU stay's `intime`. For instance, `last_careunit` cannot be used in your algorithms. 
 
 1. Data preprocessing and feature engineering.
+```{r, message = F}
+# Load libraries
+library(GGally)
+library(gtsummary)
+library(tidyverse)
+library(tidymodels)
+
+# Load data
+mimic_icu_cohort <- readRDS("mimic_icu_cohort.rds")
+
+# Numerical summaries stratified by los_long
+# mimic_icu_cohort |>
+#   tbl_summary(by = los_long)
+```
 
 2. Partition data into 50% training set and 50% test set. Stratify partitioning according to `los_long`. For grading purpose, sort the data by `subject_id`, `hadm_id`, and `stay_id` and use the seed `203` for the initial data split. Below is the sample code.
 ```{r}
-#| eval: false
 set.seed(203)
 
 # sort
-mimiciv_icu_cohort <- mimiciv_icu_cohort |>
-  arrange(subject_id, hadm_id, stay_id)
+mimic_icu_cohort <- mimic_icu_cohort |>
+  arrange(subject_id, hadm_id, stay_id) |>
+  select(-subject_id, 
+         -hadm_id, 
+         -stay_id,
+         -intime,
+         -outtime,
+         -admittime,
+         -dischtime,
+         -deathtime,
+         -admit_provider_id,
+         -los,
+         -discharge_location,
+         -edregtime,
+         -edouttime,
+         -hospital_expire_flag,
+         -anchor_age,
+         -anchor_year,
+         -anchor_year_group,
+         -dod,
+         -last_careunit)
 
+mimic_icu_cohort |>
+  print(width = Inf)
+
+mimic_icu_cohort |>
+  tbl_summary(by = los_long)
+
+# Initial split into test and non-test sets
 data_split <- initial_split(
-  mimiciv_icu_cohort, 
+  mimic_icu_cohort, 
   # stratify by los_long
   strata = "los_long", 
   prop = 0.5
   )
+data_split
+
+data_train <- training(data_split)
+dim(data_train)
+
+data_test <- testing(data_split)
+dim(data_test)
+```
+```{r}
+#Preprocessing
+logit_recipe <- recipe(los_long ~ ., data = data_train) |>
+  step_impute_mean(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_numeric_predictors()) |>
+  step_normalize(all_numeric_predictors())
+
+#Model
+logit_mod <- 
+  logistic_reg(
+    penalty = tune(), 
+    mixture = tune()
+  ) |> 
+  set_engine("glmnet", standardize = FALSE) |>
+  print()
+
+#Workflow
+logit_wf <- 
+  workflow() |>
+  add_recipe(logit_recipe) |>
+  add_model(logit_mod) |>
+  print()
+
+#Tuning
+logit_grid <- grid_regular(
+  penalty(range = c(-6, 3)), 
+  mixture(),
+  levels = c(100, 5)
+)
+```
+3. Train and tune the models using the training set.
+```{r}
+set.seed(203)
+
+folds <- vfold_cv(data_train, v = 5)
+folds
+
+#Cross validation
+(logit_fit <- logit_wf |>
+  tune_grid(
+    resamples = folds,
+    grid = logit_grid,
+    metrics = metric_set(roc_auc, accuracy)
+    )) |>
+  system.time()
+
+logit_fit
+
+logit_fit |>
+  # aggregate metrics from K folds
+  collect_metrics() |>
+  print(width = Inf) |>
+  filter(.metric == "roc_auc") |>
+  ggplot(mapping = aes(x = penalty, y = mean, color = factor(mixture))) +
+  geom_point() +
+  labs(x = "Penalty", y = "CV AUC") +
+  scale_x_log10()
+
+logit_fit |>
+  show_best("roc_auc")
+
+best_logit <- logit_fit |>
+  select_best("roc_auc")
+best_logit
 ```
 
-3. Train and tune the models using the training set.
-
 4. Compare model classification performance on the test set. Report both the area under ROC curve and accuracy for each machine learning algorithm and the model stacking. Interpret the results. What are the most important features in predicting long ICU stays? How do the models compare in terms of performance and interpretability?
+
+```{r}
+#Testing
+# Final workflow
+final_logit_wf <- logit_wf |>
+  finalize_workflow(best_logit)
+final_logit_wf
+
+# Fit the whole training set, then predict the test cases
+final_logit_fit <- 
+  final_logit_wf |>
+  last_fit(data_split)
+final_logit_fit
+
+final_logit_fit |> 
+  collect_metrics()
+```
