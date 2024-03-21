@@ -91,15 +91,19 @@ set.seed(203)
 folds <- vfold_cv(data_train, v = 5)
 folds
 ```
+
 ```{r}
-#Preprocessing
-logit_recipe <- recipe(los_long ~ ., data = data_train) |>
+#Recipe
+data_recipe <- recipe(los_long ~ ., data = data_train) |>
   step_impute_mean(all_numeric_predictors()) |>
   step_impute_mode(all_nominal_predictors()) |>
   step_dummy(all_nominal_predictors()) |>
   step_zv(all_numeric_predictors()) |>
   step_normalize(all_numeric_predictors())
+```
 
+### Logistic regression with enet regularization
+```{r}
 #Model
 logit_mod <- 
   logistic_reg(
@@ -112,15 +116,15 @@ logit_mod <-
 #Workflow
 logit_wf <- 
   workflow() |>
-  add_recipe(logit_recipe) |>
+  add_recipe(data_recipe) |>
   add_model(logit_mod) |>
   print()
 
 #Tuning
 logit_grid <- grid_regular(
-  penalty(range = c(-6, 3)), 
+  penalty(range = c(-5, 2)), 
   mixture(),
-  levels = c(100, 5)
+  levels = c(25, 4)
 )
 ```
 3. Train and tune the models using the training set.
@@ -130,7 +134,8 @@ logit_grid <- grid_regular(
   tune_grid(
     resamples = folds,
     grid = logit_grid,
-    metrics = metric_set(roc_auc, accuracy)
+    metrics = metric_set(roc_auc, accuracy),
+    control = control_stack_grid()
     )) |>
   system.time()
 
@@ -152,6 +157,9 @@ logit_fit |>
 best_logit <- logit_fit |>
   select_best("roc_auc")
 best_logit
+```
+```{r, eval = F}
+logit_fit |> write_rds("./logit_fit.rds")
 ```
 
 4. Compare model classification performance on the test set. Report both the area under ROC curve and accuracy for each machine learning algorithm and the model stacking. Interpret the results. What are the most important features in predicting long ICU stays? How do the models compare in terms of performance and interpretability?
@@ -178,14 +186,6 @@ final_logit_fit |>
 library(doParallel)
 registerDoParallel(cores = 4)
 
-# Preprocessing
-boost_recipe <- recipe(los_long ~ ., data = data_train) |>
-  step_impute_mean(all_numeric_predictors()) |>
-  step_impute_mode(all_nominal_predictors()) |>
-  step_dummy(all_nominal_predictors()) |>
-  step_zv(all_numeric_predictors()) |>
-  step_normalize(all_numeric_predictors())
-
 # Model
 boost_mod <- 
   boost_tree(
@@ -200,7 +200,7 @@ boost_mod
 # Workflow
 boost_wf <- 
   workflow() |>
-  add_recipe(boost_recipe) |>
+  add_recipe(data_recipe) |>
   add_model(boost_mod)
 
 # Tuning
@@ -219,7 +219,8 @@ boost_fit <- boost_wf |>
   tune_grid(
     resamples = folds,
     grid = boost_grid,
-    metrics = metric_set(roc_auc, accuracy)
+    metrics = metric_set(roc_auc, accuracy),
+    control = control_stack_grid()
   )
 
 boost_fit |>
@@ -237,6 +238,10 @@ boost_fit |>
 best_boost <- boost_fit |>
   select_best("roc_auc")
 best_boost
+```
+
+```{r, eval = F}
+boost_fit |> write_rds("./boost_fit.rds")
 ```
 
 ```{r}
@@ -259,14 +264,6 @@ stopImplicitCluster()
 ### MLP model
 
 ```{r}
-# Preprocessing
-mlp_recipe <- recipe(los_long ~ ., data = data_train) |>
-  step_impute_mean(all_numeric_predictors()) |>
-  step_impute_mode(all_nominal_predictors()) |>
-  step_dummy(all_nominal_predictors()) |>
-  step_zv(all_numeric_predictors()) |>
-  step_normalize(all_numeric_predictors())
-
 # Model
 mlp_mod <- 
   mlp(
@@ -281,14 +278,14 @@ mlp_mod
 # Workflow
 mlp_wf <- 
   workflow() |>
-  add_recipe(mlp_recipe) |>
+  add_recipe(data_recipe) |>
   add_model(mlp_mod)
 mlp_wf
 
 # Tuning
 mlp_grid <- grid_regular(
   hidden_units(range = c(1, 8)),
-  dropout(range = c(0, 0.015)),
+  dropout(range = c(0, 0.2)),
   levels = c(3,3)
   )
 ```
@@ -301,7 +298,8 @@ mlp_fit <- mlp_wf |>
   tune_grid(
     resamples = folds,
     grid = mlp_grid,
-    metrics = metric_set(roc_auc, accuracy)
+    metrics = metric_set(roc_auc, accuracy),
+    control = control_stack_grid()
   )
 
 mlp_fit |>
@@ -318,6 +316,10 @@ mlp_fit |>
 best_mlp <- mlp_fit |>
   select_best("roc_auc")
 best_mlp
+```
+
+```{r, eval = F}
+mlp_fit |> write_rds("./mlp_fit.rds")
 ```
 
 ```{r}
@@ -337,38 +339,38 @@ final_mlp_fit |>
 
 ### Model stacking
 ```{r}
-# Preprocessing
-stack_recipe <- recipe(los_long ~ ., data = data_train) |>
-  step_impute_mean(all_numeric_predictors()) |>
-  step_impute_mode(all_nominal_predictors()) |>
-  step_dummy(all_nominal_predictors()) |>
-  step_zv(all_numeric_predictors()) |>
-  step_normalize(all_numeric_predictors())
-
 # Model
 stack_mod <- 
-  stack() |> 
+  stacks() |> 
   add_candidates(logit_fit) |>
   add_candidates(boost_fit) |>
   add_candidates(mlp_fit) |>
   blend_predictions(
-    penalty = 10^(-6:2),
+    penalty = 10^(-5:-1),
     metrics = c("roc_auc")
     ) |>
   fit_members()
 
 # Visualize
-autoplot(heart_model_st, type = "members")
+autoplot(stack_mod, type = "members")
 
-autoplot(heart_model_st, type = "weights")
+autoplot(stack_mod, type = "weights")
 
 # Collect parameters
-collect_parameters(heart_model_st, "rf_res")
+collect_parameters(stack_mod, "rf_res")
 ```
+
+```{r, eval = F}
+stack_mod |> write_rds("./stack_mod.rds")
+```
+
 ```{r}
 #Final classification
-stack_pred <- data_test |>
-  bind_cols(predict(stack_mod, ., type = "prob")) |>
+stack_pred <- 
+  bind_cols(
+    predict(stack_mod, 
+            new_data = data_test, 
+            type = "prob")) |>
   print(width = Inf)
 
 yardstick::roc_auc(
