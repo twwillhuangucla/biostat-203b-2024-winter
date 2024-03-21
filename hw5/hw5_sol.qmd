@@ -18,7 +18,7 @@ format:
 Using the ICU cohort `mimiciv_icu_cohort.rds` you built in Homework 4, develop at least three machine learning approaches (logistic regression with enet regularization, random forest, boosting, SVM, MLP, etc) plus a model stacking approach for predicting whether a patient's ICU stay will be longer than 2 days. You should use the `los_long` variable as the outcome. You algorithms can use patient demographic information (gender, age at ICU `intime`, marital status, race), ICU admission information (first care unit), the last lab measurements before the ICU stay, and first vital measurements during ICU stay as features. You are welcome to use any feature engineering techniques you think are appropriate; but make sure to not use features that are not available at an ICU stay's `intime`. For instance, `last_careunit` cannot be used in your algorithms. 
 
 1. Data preprocessing and feature engineering.
-```{r, message = F}
+```{r setup, message = F}
 # Load libraries
 library(GGally)
 library(gtsummary)
@@ -26,7 +26,9 @@ library(ranger)
 library(tidyverse)
 library(tidymodels)
 library(xgboost)
-
+library(doParallel)
+library(stacks)
+library(keras)
 
 # Load data
 mimic_icu_cohort <- readRDS("mimic_icu_cohort.rds")
@@ -83,6 +85,11 @@ dim(data_train)
 
 data_test <- testing(data_split)
 dim(data_test)
+
+set.seed(203)
+
+folds <- vfold_cv(data_train, v = 5)
+folds
 ```
 ```{r}
 #Preprocessing
@@ -118,11 +125,6 @@ logit_grid <- grid_regular(
 ```
 3. Train and tune the models using the training set.
 ```{r}
-set.seed(203)
-
-folds <- vfold_cv(data_train, v = 5)
-folds
-
 #Cross validation
 (logit_fit <- logit_wf |>
   tune_grid(
@@ -254,3 +256,141 @@ final_boost_fit |>
 
 stopImplicitCluster()
 ```
+### MLP model
+
+```{r}
+# Preprocessing
+mlp_recipe <- recipe(los_long ~ ., data = data_train) |>
+  step_impute_mean(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_numeric_predictors()) |>
+  step_normalize(all_numeric_predictors())
+
+# Model
+mlp_mod <- 
+  mlp(
+    mode = "classification",
+    hidden_units = tune(),
+    dropout = tune(),
+    epochs = 15,
+  ) |> 
+  set_engine("keras", verbose = 0)
+mlp_mod
+
+# Workflow
+mlp_wf <- 
+  workflow() |>
+  add_recipe(mlp_recipe) |>
+  add_model(mlp_mod)
+mlp_wf
+
+# Tuning
+mlp_grid <- grid_regular(
+  hidden_units(range = c(1, 8)),
+  dropout(range = c(0, 0.015)),
+  levels = c(3,3)
+  )
+```
+
+```{r}
+# Cross validation
+set.seed(203)
+
+mlp_fit <- mlp_wf |>
+  tune_grid(
+    resamples = folds,
+    grid = mlp_grid,
+    metrics = metric_set(roc_auc, accuracy)
+  )
+
+mlp_fit |>
+  collect_metrics() |>
+  print(width = Inf) |>
+  filter(.metric == "roc_auc") |>
+  ggplot(mapping = aes(x = dropout, y = mean, color = factor(hidden_units))) +
+  geom_point() +
+  labs(x = "Dropout Rate", y = "CV AUC")
+  
+mlp_fit |>
+  show_best("roc_auc")
+
+best_mlp <- mlp_fit |>
+  select_best("roc_auc")
+best_mlp
+```
+
+```{r}
+# Testing
+# Final workflow
+final_mlp_wf <- mlp_wf |>
+  finalize_workflow(best_mlp)
+
+# Fit the whole training set, then predict the test cases
+final_mlp_fit <- 
+  final_mlp_wf |>
+  last_fit(data_split)
+
+final_mlp_fit |>
+  collect_metrics()
+```
+
+### Model stacking
+```{r}
+# Preprocessing
+stack_recipe <- recipe(los_long ~ ., data = data_train) |>
+  step_impute_mean(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_numeric_predictors()) |>
+  step_normalize(all_numeric_predictors())
+
+# Model
+stack_mod <- 
+  stack() |> 
+  add_candidates(logit_fit) |>
+  add_candidates(boost_fit) |>
+  add_candidates(mlp_fit) |>
+  blend_predictions(
+    penalty = 10^(-6:2),
+    metrics = c("roc_auc")
+    ) |>
+  fit_members()
+
+# Visualize
+autoplot(heart_model_st, type = "members")
+
+autoplot(heart_model_st, type = "weights")
+
+# Collect parameters
+collect_parameters(heart_model_st, "rf_res")
+```
+```{r}
+#Final classification
+stack_pred <- data_test |>
+  bind_cols(predict(stack_mod, ., type = "prob")) |>
+  print(width = Inf)
+
+yardstick::roc_auc(
+  stack_pred,
+  truth = los_long,
+  contains(".pred_No")
+  )
+
+stack_pred <-
+  data_test |>
+  select(los_long) |>
+  bind_cols(
+    predict(stack_mod,
+            data_test,
+            type = "class",
+            members = T
+    )
+  ) |>
+  print(width = Inf)
+```
+
+
+
+
+
