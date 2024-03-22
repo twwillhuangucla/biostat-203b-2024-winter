@@ -129,6 +129,7 @@ logit_grid <- grid_regular(
 ```
 
 ```{r, eval = F}
+# eval set to F to avoid long runtime and large file, to render fully set eval = T
 #Cross validation
 (logit_fit <- logit_wf |>
   tune_grid(
@@ -151,7 +152,10 @@ logit_fit |>
   collect_metrics() |>
   print(width = Inf) |>
   filter(.metric == "roc_auc") |>
-  ggplot(mapping = aes(x = penalty, y = mean, color = factor(mixture))) +
+  ggplot(mapping = 
+           aes(x = penalty, 
+               y = mean, 
+               color = factor(mixture))) +
   geom_point() +
   labs(x = "Penalty", y = "CV AUC") +
   scale_x_log10()
@@ -209,6 +213,7 @@ boost_grid <- grid_regular(
 ```
 
 ```{r, eval = F}
+# eval set to F to avoid long runtime and large file, to render fully set eval = T
 library(doParallel)
 registerDoParallel(cores = 4)
 # Cross validation
@@ -235,7 +240,10 @@ boost_fit |>
   collect_metrics() |>
   print(width = Inf) |>
   filter(.metric == "roc_auc") |>
-  ggplot(mapping = aes(x = learn_rate, y = mean, color = factor(tree_depth))) +
+  ggplot(mapping = 
+           aes(x = learn_rate, 
+               y = mean, 
+               color = factor(tree_depth))) +
   geom_point() +
   labs(x = "Learning Rate", y = "CV AUC") +
   scale_x_log10()
@@ -296,6 +304,7 @@ mlp_grid <- grid_regular(
 ```
 
 ```{r, eval = F}
+# eval set to F to avoid long runtime and large file, to render fully set eval = T
 # Cross validation
 set.seed(203)
 
@@ -317,7 +326,10 @@ mlp_fit |>
   collect_metrics() |>
   print(width = Inf) |>
   filter(.metric == "roc_auc") |>
-  ggplot(mapping = aes(x = dropout, y = mean, color = factor(hidden_units))) +
+  ggplot(mapping = 
+           aes(x = dropout, 
+               y = mean, 
+               color = factor(hidden_units))) +
   geom_point() +
   labs(x = "Dropout Rate", y = "CV AUC")
   
