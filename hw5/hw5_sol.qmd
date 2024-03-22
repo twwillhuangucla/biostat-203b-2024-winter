@@ -36,12 +36,6 @@ library(keras)
 # Load data
 mimic_icu_cohort <- readRDS("mimic_icu_cohort.rds")
 
-# Numerical summaries stratified by los_long
-# mimic_icu_cohort |>
-#   tbl_summary(by = los_long)
-
-set.seed(203)
-
 # sort
 mimic_icu_cohort <- mimic_icu_cohort |>
   arrange(subject_id, hadm_id, stay_id) |>
@@ -96,6 +90,8 @@ folds <- vfold_cv(data_train, v = 5)
 folds
 ```
 
+3. Train and tune the models using the training set.
+
 ```{r}
 #Recipe
 data_recipe <- recipe(los_long ~ ., data = data_train) |>
@@ -131,8 +127,8 @@ logit_grid <- grid_regular(
   levels = c(25, 4)
 )
 ```
-3. Train and tune the models using the training set.
-```{r}
+
+```{r, eval = F}
 #Cross validation
 (logit_fit <- logit_wf |>
   tune_grid(
@@ -142,8 +138,13 @@ logit_grid <- grid_regular(
     control = control_stack_grid()
     )) |>
   system.time()
-
 logit_fit
+
+logit_fit |> write_rds("./logit_fit.rds")
+```
+
+```{r}
+logit_fit <- readRDS("./logit_fit.rds")
 
 logit_fit |>
   # aggregate metrics from K folds
@@ -161,9 +162,6 @@ logit_fit |>
 best_logit <- logit_fit |>
   select_best("roc_auc")
 best_logit
-```
-```{r, eval = F}
-logit_fit |> write_rds("./logit_fit.rds")
 ```
 
 ```{r}
@@ -185,9 +183,6 @@ final_logit_fit |>
 
 ### Boosting
 ```{r}
-library(doParallel)
-registerDoParallel(cores = 4)
-
 # Model
 boost_mod <- 
   boost_tree(
@@ -213,7 +208,9 @@ boost_grid <- grid_regular(
   )
 ```
 
-```{r}
+```{r, eval = F}
+library(doParallel)
+registerDoParallel(cores = 4)
 # Cross validation
 set.seed(203)
 
@@ -224,6 +221,15 @@ boost_fit <- boost_wf |>
     metrics = metric_set(roc_auc, accuracy),
     control = control_stack_grid()
   )
+
+boost_fit |> write_rds("./boost_fit.rds")
+
+stopImplicitCluster()
+registerDoSEQ()
+```
+
+```{r}
+boost_fit <- readRDS("./boost_fit.rds")
 
 boost_fit |>
   collect_metrics() |>
@@ -240,10 +246,6 @@ boost_fit |>
 best_boost <- boost_fit |>
   select_best("roc_auc")
 best_boost
-```
-
-```{r, eval = F}
-boost_fit |> write_rds("./boost_fit.rds")
 ```
 
 ```{r}
@@ -293,7 +295,7 @@ mlp_grid <- grid_regular(
   )
 ```
 
-```{r}
+```{r, eval = F}
 # Cross validation
 set.seed(203)
 
@@ -304,6 +306,12 @@ mlp_fit <- mlp_wf |>
     metrics = metric_set(roc_auc, accuracy),
     control = control_stack_grid()
   )
+
+mlp_fit |> write_rds("./mlp_fit.rds")
+```
+
+```{r}
+mlp_fit <- readRDS("./mlp_fit.rds")
 
 mlp_fit |>
   collect_metrics() |>
@@ -319,10 +327,6 @@ mlp_fit |>
 best_mlp <- mlp_fit |>
   select_best("roc_auc")
 best_mlp
-```
-
-```{r, eval = F}
-mlp_fit |> write_rds("./mlp_fit.rds")
 ```
 
 ```{r}
@@ -369,7 +373,6 @@ collect_parameters(stack_mod, "boost_fit")
 collect_parameters(stack_mod, "mlp_fit")
 ```
 
-
 ```{r}
 #Final classification
 stack_pred <- data_test |>
@@ -394,9 +397,27 @@ yardstick::accuracy(
   )
 ```
 
-
+## Comparison and interpretation
 4. Compare model classification performance on the test set. Report both the area under ROC curve and accuracy for each machine learning algorithm and the model stacking. Interpret the results. What are the most important features in predicting long ICU stays? How do the models compare in terms of performance and interpretability?
 
+```{r}
+library(vip)
+final_logit <-
+  extract_workflow(final_logit_fit)
 
+final_logit |>
+  extract_fit_parsnip() %>% 
+  vip()
+```
 
+Table:
+
+| Method | Accuracy | ROC AUC |
+|:------:|:------:|:------:|
+| Logistic Regression | 0.585 | 0.619 |
+| Boosting | 0.617 | 0.662  |
+| MLP | 0.596 | 0.631 |
+| Model Stacking | 0.619 | 0.664 |
+
+Out of all the models listed above, the model stacking method has the highest accuracy (0.619) and ROC AUC (0.664), while the logistic regression model has the lowest accuracy and ROC AUC. Although logistic regression has the lowest accuracy and ROC AUC, it is the most interpretable model. By examining the logistic regression model, we can see that the most important features in predicting long ICU stays are non invasive blood pressure, heart rate, and whether admission location was transfer from hospital. Therefore, although both MLP and boosting models have higher accuracy and ROC AUC, the improved performance comes at a cost of reduced interpretability.
 
