@@ -18,6 +18,8 @@ format:
 Using the ICU cohort `mimiciv_icu_cohort.rds` you built in Homework 4, develop at least three machine learning approaches (logistic regression with enet regularization, random forest, boosting, SVM, MLP, etc) plus a model stacking approach for predicting whether a patient's ICU stay will be longer than 2 days. You should use the `los_long` variable as the outcome. You algorithms can use patient demographic information (gender, age at ICU `intime`, marital status, race), ICU admission information (first care unit), the last lab measurements before the ICU stay, and first vital measurements during ICU stay as features. You are welcome to use any feature engineering techniques you think are appropriate; but make sure to not use features that are not available at an ICU stay's `intime`. For instance, `last_careunit` cannot be used in your algorithms. 
 
 1. Data preprocessing and feature engineering.
+
+2. Partition data into 50% training set and 50% test set. Stratify partitioning according to `los_long`. For grading purpose, sort the data by `subject_id`, `hadm_id`, and `stay_id` and use the seed `203` for the initial data split. Below is the sample code.
 ```{r setup, message = F}
 # Load libraries
 library(GGally)
@@ -31,7 +33,6 @@ library(stacks)
 library(keras)
 ```
 
-2. Partition data into 50% training set and 50% test set. Stratify partitioning according to `los_long`. For grading purpose, sort the data by `subject_id`, `hadm_id`, and `stay_id` and use the seed `203` for the initial data split. Below is the sample code.
 ```{r}
 # Load data
 mimic_icu_cohort <- readRDS("mimic_icu_cohort.rds")
@@ -176,6 +177,7 @@ final_logit_wf <- logit_wf |>
 final_logit_wf
 
 # Fit the whole training set, then predict the test cases
+set.seed(203)
 final_logit_fit <- 
   final_logit_wf |>
   last_fit(data_split)
@@ -264,15 +266,13 @@ final_boost_wf <- boost_wf |>
 final_boost_wf
 
 # Fit the whole training set, then predict the test cases
+set.seed(203)
 final_boost_fit <- 
   final_boost_wf |>
   last_fit(data_split)
 
 final_boost_fit |>
   collect_metrics()
-
-stopImplicitCluster()
-registerDoSEQ()
 ```
 ### MLP model
 
@@ -414,10 +414,20 @@ yardstick::accuracy(
 
 ```{r}
 library(vip)
+
+#Importance metric for logistic regression
 final_logit <-
   extract_workflow(final_logit_fit)
 
 final_logit |>
+  extract_fit_parsnip() %>% 
+  vip()
+
+#Importance metric for boosting
+final_boost <-
+  extract_workflow(final_boost_fit)
+
+final_boost |>
   extract_fit_parsnip() %>% 
   vip()
 ```
@@ -426,10 +436,10 @@ Table:
 
 | Method | Accuracy | ROC AUC |
 |:------:|:------:|:------:|
-| Logistic Regression | 0.585 | 0.619 |
-| Boosting | 0.617 | 0.662  |
-| MLP | 0.596 | 0.631 |
-| Model Stacking | 0.619 | 0.664 |
+| Logistic Regression | 0.585 | 0.618 |
+| Boosting | 0.616 | 0.659  |
+| MLP | 0.593 | 0.627 |
+| Model Stacking | 0.649 | 0.706 |
 
-Out of all the models listed above, the model stacking method has the highest accuracy (0.619) and ROC AUC (0.664), while the logistic regression model has the lowest accuracy and ROC AUC. Although logistic regression has the lowest accuracy and ROC AUC, it is the most interpretable model. By examining the logistic regression model, we can see that the most important features in predicting long ICU stays are non invasive blood pressure, heart rate, and whether admission location was transfer from hospital. Therefore, although both MLP and boosting models have higher accuracy and ROC AUC, the improved performance comes at a cost of reduced interpretability.
+Out of all the models listed above, the model stacking method has the highest accuracy (0.649) and ROC AUC (0.706), while the logistic regression model has the lowest accuracy and ROC AUC. Although logistic regression has the lowest accuracy and ROC AUC, it is the most interpretable model because we can simply examine the coefficients to understand how each feature affects the outcome. By examining the logistic regression model, we can see that the most important features in predicting long ICU stays are diastolic blood pressure,  heart rate,  whether admission location was transfer from hospital. Although boosting has lower interpretability due to being a sequential combination of a large number of trees, we can still examine the feature importance. From this we can see that temperature in F, systolic blood pressure, and heart rate were the most important features. Therefore, although MLP boosting, and model stacking have higher accuracy and ROC AUC, the improved performance comes at a cost of reduced interpretability compared to logistic regression.
 
