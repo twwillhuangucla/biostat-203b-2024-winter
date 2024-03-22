@@ -29,22 +29,26 @@ library(xgboost)
 library(doParallel)
 library(stacks)
 library(keras)
+```
 
+2. Partition data into 50% training set and 50% test set. Stratify partitioning according to `los_long`. For grading purpose, sort the data by `subject_id`, `hadm_id`, and `stay_id` and use the seed `203` for the initial data split. Below is the sample code.
+```{r}
 # Load data
 mimic_icu_cohort <- readRDS("mimic_icu_cohort.rds")
 
 # Numerical summaries stratified by los_long
 # mimic_icu_cohort |>
 #   tbl_summary(by = los_long)
-```
 
-2. Partition data into 50% training set and 50% test set. Stratify partitioning according to `los_long`. For grading purpose, sort the data by `subject_id`, `hadm_id`, and `stay_id` and use the seed `203` for the initial data split. Below is the sample code.
-```{r}
 set.seed(203)
 
 # sort
 mimic_icu_cohort <- mimic_icu_cohort |>
   arrange(subject_id, hadm_id, stay_id) |>
+  mutate(admit_hour = hour(admittime),
+         intime_hour = hour(intime),
+         admit_hour = as.factor(admit_hour),
+         intime_hour = as.factor(intime_hour)) |>
   select(-subject_id, 
          -hadm_id, 
          -stay_id,
@@ -162,8 +166,6 @@ best_logit
 logit_fit |> write_rds("./logit_fit.rds")
 ```
 
-4. Compare model classification performance on the test set. Report both the area under ROC curve and accuracy for each machine learning algorithm and the model stacking. Interpret the results. What are the most important features in predicting long ICU stays? How do the models compare in terms of performance and interpretability?
-
 ```{r}
 #Testing
 # Final workflow
@@ -260,6 +262,7 @@ final_boost_fit |>
   collect_metrics()
 
 stopImplicitCluster()
+registerDoSEQ()
 ```
 ### MLP model
 
@@ -284,7 +287,7 @@ mlp_wf
 
 # Tuning
 mlp_grid <- grid_regular(
-  hidden_units(range = c(1, 8)),
+  hidden_units(range = c(1, 10)),
   dropout(range = c(0, 0.2)),
   levels = c(3,3)
   )
@@ -350,48 +353,49 @@ stack_mod <-
     metrics = c("roc_auc")
     ) |>
   fit_members()
+```
 
+```{r}
 # Visualize
+autoplot(stack_mod)
+
 autoplot(stack_mod, type = "members")
 
 autoplot(stack_mod, type = "weights")
 
 # Collect parameters
-collect_parameters(stack_mod, "rf_res")
+collect_parameters(stack_mod, "logit_fit")
+collect_parameters(stack_mod, "boost_fit")
+collect_parameters(stack_mod, "mlp_fit")
 ```
 
-```{r, eval = F}
-stack_mod |> write_rds("./stack_mod.rds")
-```
 
 ```{r}
 #Final classification
-stack_pred <- 
+stack_pred <- data_test |>
   bind_cols(
     predict(stack_mod, 
             new_data = data_test, 
             type = "prob")) |>
+  mutate(pred = .pred_FALSE < 0.5) |>
+  mutate(pred = as.factor(pred)) |>
   print(width = Inf)
 
 yardstick::roc_auc(
   stack_pred,
   truth = los_long,
-  contains(".pred_No")
+  contains(".pred_FALSE")
   )
 
-stack_pred <-
-  data_test |>
-  select(los_long) |>
-  bind_cols(
-    predict(stack_mod,
-            data_test,
-            type = "class",
-            members = T
-    )
-  ) |>
-  print(width = Inf)
+yardstick::accuracy(
+  stack_pred,
+  truth = los_long,
+  estimate = pred
+  )
 ```
 
+
+4. Compare model classification performance on the test set. Report both the area under ROC curve and accuracy for each machine learning algorithm and the model stacking. Interpret the results. What are the most important features in predicting long ICU stays? How do the models compare in terms of performance and interpretability?
 
 
 
